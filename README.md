@@ -1,3 +1,19 @@
+# DBD Base v1.0 — r2 polish
+
+Build ID: `base-1.0-r2`.
+
+## Changes
+- Header has Subjects, History and Settings only; the DBD wordmark is Home.
+- BASE is a small monospace superscript, not a badge shape.
+- Home removes explanatory copy and renderer-capability copy.
+- Long pending-packet titles/filenames wrap safely on phones.
+- Subject Editor can merge subjects, rename canonical subjects and add aliases.
+- Merges preserve old completed-drill labels while grouping them through aliases.
+- Schema 7 Base Settings shows canonical subjects and aliases.
+- New PWA icons, maskable metadata, Apple touch icon, and favicon.
+
+---
+
 # DBD Base v1.0
 
 **Product:** DBD Base  

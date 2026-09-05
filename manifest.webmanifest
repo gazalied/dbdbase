@@ -1,6 +1,6 @@
 {
-  "name": "DBD Lite — Drill Baby Drill",
-  "short_name": "DBD Lite",
+  "name": "DBD Base v1.0",
+  "short_name": "DBD Base",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#0d0f10",
@@ -16,5 +16,6 @@
       "sizes": "512x512",
       "type": "image/png"
     }
-  ]
+  ],
+  "description": "Drill Baby Drill Base \u2014 a local-first drill renderer and evidence recorder."
 }

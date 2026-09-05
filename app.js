@@ -1,5 +1,5 @@
-const APP_VERSION='DBD Lite v1.0';
-const BUILD_ID='lite-1.0-json-core';
+const APP_VERSION='DBD Base v1.0';
+const BUILD_ID='base-1.0-renderer';
 const STORAGE_KEY='dbd_gazali';
 const LARGE_PACKET_THRESHOLD=15;
 const SUBJECTS=[
@@ -32,7 +32,7 @@ const CONFIDENCES=[['sure','Sure'],['unsure','Not sure'],['guess','Ngasal']];
 const ERROR_TYPES=[['concept','Did not know'],['formula','Forgot rule/formula'],['method','Wrong method'],['execution','Execution/calculation'],['misread','Misread'],['careless','Careless/rushed'],['guess','Guessed'],['focus','Lost focus'],['timeout','Timed out'],['bad-question','Bad question'],['unclassified','Unclassified']];
 
 const DATA_SCHEMA_VERSION=7;
-const DATA_SCHEMA_LABEL='Schema 7 Lite';
+const DATA_SCHEMA_LABEL='Schema 7 Base';
 function makeUid(prefix='id'){try{return `${prefix}_${crypto.randomUUID()}`}catch(e){return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2,10)}`}}
 function streamIdFromName(name){return String(name||'custom').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'custom'}
 function defaultStream(name,campaign='Custom'){return{id:streamIdFromName(name),name:String(name||'Custom'),campaign:String(campaign||'Custom'),active:true,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()}}
@@ -5933,7 +5933,7 @@ function boot099dev2(){
 
 
 /* =====================================================================
-   DBD Lite v1.0 — finished lightweight branch
+   DBD Base v1.0 — finished lightweight branch
 
    Constitutional rule:
    JSON packet in -> drill -> history.
@@ -5942,7 +5942,7 @@ function boot099dev2(){
    intentionally dormant and invisible to normal Lite operation.
    ===================================================================== */
 
-const LITE_SCHEMA_LABEL='Schema 7 Lite';
+const LITE_SCHEMA_LABEL='Schema 7 Base';
 const LITE_PROMPT_COPY_LIMIT=18000;
 
 function liteDownload(name,text,type='text/markdown'){
@@ -5951,9 +5951,9 @@ function liteDownload(name,text,type='text/markdown'){
 
 function litePrompt(subjectName=''){
   const subjectLine=subjectName?`TARGET SUBJECT: ${subjectName}`:'TARGET SUBJECT: infer the subject from this chat';
-  return `# DBD Lite v1.0 — Drill Packet Request
+  return `# DBD Base v1.0 — Drill Packet Request
 
-DBD Lite is deliberately simple: ChatGPT prepares trustworthy JSON drill material; DBD serves it and records what happened. There is no smart maintenance scheduler deciding what I should learn.
+DBD Base is deliberately simple: ChatGPT prepares trustworthy JSON drill material; DBD serves it and records what happened. There is no smart maintenance scheduler deciding what I should learn.
 
 ${subjectLine}
 
@@ -5982,11 +5982,11 @@ Internally design and audit the set before exporting. Do not reveal private chai
 
 ## Output
 
-After I answer the setup question, return a valid DBD Lite JSON packet. For 1–15 questions, you may paste JSON or attach a .json file. For 16+ questions, attach a downloadable .json file and do not paste a giant packet into chat.
+After I answer the setup question, return a valid DBD Base JSON packet. For 1–15 questions, you may paste JSON or attach a .json file. For 16+ questions, attach a downloadable .json file and do not paste a giant packet into chat.
 
 Required top-level fields:
 {
-  "dbd_version": "DBD Lite v1.0",
+  "dbd_version": "DBD Base v1.0",
   "campaign": "...",
   "subject": "...",
   "topic": "...",
@@ -6017,7 +6017,7 @@ Do not include raw HTML. Do not output a Question Bank, Bank Collection, Subject
 async function copyLitePrompt(button,subjectName=''){
   const text=litePrompt(subjectName);
   if(text.length>LITE_PROMPT_COPY_LIMIT){
-    liteDownload(`dbd-lite-prompt-${localDay()}.md`,text,'text/markdown');
+    liteDownload(`dbd-base-prompt-${localDay()}.md`,text,'text/markdown');
     if(button){const old=button.textContent;button.textContent='DOWNLOADED .MD ✓';setTimeout(()=>button.textContent=old,1400)}
     return;
   }
@@ -6029,11 +6029,11 @@ copyVanilla=function(button){return copyLitePrompt(button,'')};
 
 generatePrompt=function(){
   const text=createPrompt();
-  const liteHeader=`# DBD Lite v1.0 — Custom Drill Request\n\nUse the current subject material and think carefully before generating. This is a temporary JSON drill packet, not a Question Bank or long-term maintenance plan.\n\n`;
-  DATA.generatedPrompt=liteHeader+text.replace(/DBD v0\.9\.8(?:\.4\.1)?/g,'DBD Lite v1.0');
+  const liteHeader=`# DBD Base v1.0 — Custom Drill Request\n\nUse the current subject material and think carefully before generating. This is a temporary JSON drill packet, not a Question Bank or long-term maintenance plan.\n\n`;
+  DATA.generatedPrompt=liteHeader+text.replace(/DBD v0\.9\.8(?:\.4\.1)?/g,'DBD Base v1.0');
   save();
   if(DATA.generatedPrompt.length>LITE_PROMPT_COPY_LIMIT){
-    liteDownload(`dbd-lite-custom-prompt-${localDay()}.md`,DATA.generatedPrompt,'text/markdown');
+    liteDownload(`dbd-base-custom-prompt-${localDay()}.md`,DATA.generatedPrompt,'text/markdown');
     route('home');
     return;
   }
@@ -6050,14 +6050,14 @@ function liteHome(){
   const ongoing=DATA.activeSessions.length+(DATA.pendingPacket?1:0);
   return `<section class="lite-home">
     <div class="lite-home-hero">
-      <div class="eyebrow">DBD Lite v1.0</div>
+      <div class="eyebrow">DBD Base v1.0</div>
       <h1>Ready to drill.</h1>
-      <p>Get a trustworthy JSON packet from your subject chat, import it, answer it, and leave. DBD Lite records the evidence without deciding what deserves your attention.</p>
+      <p>Get a trustworthy JSON packet from your subject chat, import it, answer it, and leave. DBD Base records the evidence without deciding what deserves your attention.</p>
       <div class="lite-primary-actions">
         <button class="button primary" onclick="copyLitePrompt(this)">COPY PROMPT</button>
         <button class="button" onclick="route('import')">IMPORT PACKAGE</button>
       </div>
-      <div class="lite-home-note">Short prompts copy to the clipboard. If a generated prompt ever becomes too long, DBD Lite automatically downloads it as a Markdown (.md) file.</div>
+      <div class="lite-home-note">Short prompts copy to the clipboard. If a generated prompt ever becomes too long, DBD Base automatically downloads it as a Markdown (.md) file.</div>
     </div>
     ${ongoingSessions(true)}
     <div class="lite-stat-strip">
@@ -6105,7 +6105,7 @@ subjectsView=function(){
     return `<section class="dev2-page">
       <button class="back-link" onclick="liteCloseSubject()">← Subjects</button>
       <div class="lite-home-hero" style="margin-top:8px">
-        <div class="eyebrow">DBD Lite</div>
+        <div class="eyebrow">DBD Base</div>
         <h1>${esc(chosen)}</h1>
         <p>${x.sessions.length} completed drills · ${x.answered} historical answers. Lite does not infer a maintenance priority from these records.</p>
         <div class="lite-subject-actions">
@@ -6152,10 +6152,10 @@ function liteSettings(){
   const legacyBank=(DATA.questionBank||[]).length;
   const legacyAttempts=(DATA.streamEngine?.attempts||[]).length;
   return `<section class="dev2-page">
-    <div class="dev2-page-head"><div><div class="eyebrow">DBD Lite v1.0 · ${BUILD_ID}</div><h1>Settings</h1><p>${LITE_SCHEMA_LABEL}. Full DBD v1.0 has not been released.</p></div></div>
+    <div class="dev2-page-head"><div><div class="eyebrow">DBD Base v1.0 · ${BUILD_ID}</div><h1>Settings</h1><p>${LITE_SCHEMA_LABEL}. Full DBD v1.0 has not been released.</p></div></div>
     <div class="settings-group">
       <div class="settings-title">Lite model</div>
-      <div class="metric-row"><span>Product</span><strong>DBD Lite v1.0</strong></div>
+      <div class="metric-row"><span>Product</span><strong>DBD Base v1.0</strong></div>
       <div class="metric-row"><span>Data schema</span><strong>${LITE_SCHEMA_LABEL}</strong></div>
       <div class="metric-row"><span>Runtime</span><strong>JSON packet → drill → history</strong></div>
       <div class="metric-row"><span>Completed drills</span><strong>${DATA.completedSessions.length}</strong></div>
@@ -6163,7 +6163,7 @@ function liteSettings(){
     </div>
     <div class="settings-group">
       <div class="settings-title">Preserved full-DBD legacy data</div>
-      <div class="lite-legacy-note"><strong>${legacyBank} Question Bank records</strong> and <strong>${legacyAttempts} experimental Stream attempts</strong> remain in your Vault for history/compatibility. DBD Lite does not schedule, prioritize, or expose those Bank questions as current drill inventory.</div>
+      <div class="lite-legacy-note"><strong>${legacyBank} Question Bank records</strong> and <strong>${legacyAttempts} experimental Stream attempts</strong> remain in your Vault for history/compatibility. DBD Base does not schedule, prioritize, or expose those Bank questions as current drill inventory.</div>
     </div>
     <div class="settings-group">
       <div class="settings-title">DBD Vault</div>
@@ -6188,21 +6188,610 @@ function bootLite10(){
     DATA=normalizeFutureData(DATA);
     DATA.schemaVersion=7; // numeric compatibility
     DATA.schemaLabel=LITE_SCHEMA_LABEL;
-    DATA.product='DBD Lite';
-    DATA.liteVersion='1.0';
+    DATA.product='DBD Base';
+    DATA.baseVersion='1.0';
     save();
     clearEngineCache();
     DEV2_PICK_CACHE=null;DEV2_NEXT_PICK=null;
     render();
-    console.info(`DBD Lite v1.0 · ${BUILD_ID} · ${LITE_SCHEMA_LABEL}`);
+    console.info(`DBD Base v1.0 · ${BUILD_ID} · ${LITE_SCHEMA_LABEL}`);
     window.addEventListener('load',()=>retireLegacyServiceWorker(),{once:true});
   }catch(e){
-    console.error('DBD Lite boot failed',e);
+    console.error('DBD Base boot failed',e);
     const app=document.getElementById('application');
-    if(app)app.innerHTML=`<div class="boot-error"><h2>DBD Lite could not finish startup.</h2><p>Your browser data remains under <strong>dbd_gazali</strong>.</p><code>${esc(e?.message||String(e))}</code></div>`;
+    if(app)app.innerHTML=`<div class="boot-error"><h2>DBD Base could not finish startup.</h2><p>Your browser data remains under <strong>dbd_gazali</strong>.</p><code>${esc(e?.message||String(e))}</code></div>`;
   }
 }
-/* ================= END DBD LITE v1.0 ================= */
+/* ================= END DBD BASE LEGACY COMPAT ================= */
+
+
+/* DBD Base v1.0 — field-tested drill mechanics */
+const LITE_RESULTS_COPY_LIMIT=16000;let LITE_CALC_OPEN=false;let LITE_CALC_EXPR='';
+function liteNormalizeAnswer(v){return String(v??'').normalize('NFKC').toLowerCase().replace(/[−–—]/g,'-').replace(/[,]/g,'.').replace(/\s+/g,' ').trim()}
+function liteNumbers(v){const m=liteNormalizeAnswer(v).match(/[-+]?(?:\d+(?:\.\d+)?|\.\d+)/g);return(m||[]).map(Number).filter(Number.isFinite)}
+function liteMostlyUnitText(v){return liteNormalizeAnswer(v).replace(/[-+]?(?:\d+(?:\.\d+)?|\.\d+)/g,'').replace(/[°º%π²³^=*\/()+\-]/g,'').replace(/\b(?:derajat(?:nya)?|degree(?:s)?|deg|cm|mm|m|km|kg|g|s|sec|seconds?|menit|minute(?:s)?|jam|hours?|rad|radian(?:s)?|unit(?:s)?|satuan|sekitar|approximately|approx|about|jawabannya|answer(?: is)?|adalah|is|yaitu|maka)\b/g,'').replace(/\s+/g,'').length===0}
+function liteSmartNumericEquivalent(expected,given,tolerance=0){const en=liteNumbers(expected),gn=liteNumbers(given);if(en.length!==1||gn.length!==1)return false;if(!liteMostlyUnitText(expected)||!liteMostlyUnitText(given))return false;return Math.abs(en[0]-gn[0])<=Math.max(0,Number(tolerance)||0,1e-9)}
+function liteRegexMatch(patterns,value){for(const p of patterns||[]){try{const src=typeof p==='string'?p:String(p?.pattern||''),flags=typeof p==='object'&&p?.flags?String(p.flags).replace(/[^gimsuy]/g,''):'i';if(src&&new RegExp(src,flags).test(String(value??'')))return true}catch(e){console.warn('Ignored invalid answer_regex pattern',p)}}return false}
+const LITE_NORMALIZE_STIMULUS_BASE=normalizeStimulus;normalizeStimulus=function(s){if(!s)return null;if(typeof s==='object'&&String(s.type||'').toLowerCase()==='svg')return{type:'svg',title:String(s.title||''),svg:String(s.svg||s.content||''),text:'',source:String(s.source||'')};return LITE_NORMALIZE_STIMULUS_BASE(s)};
+const LITE_NORMALIZE_QUESTION_BASE=normalizeQuestion;normalizeQuestion=function(raw,i){const q=LITE_NORMALIZE_QUESTION_BASE(raw,i);if(!q)return q;q.answerRegex=Array.isArray(raw.answer_regex)?raw.answer_regex:Array.isArray(raw.answerRegex)?raw.answerRegex:[];const cr=raw.calculator_allowed??raw.calculatorAllowed??raw.calculator;q.calculatorAllowed=cr===true||['allowed','optional','yes','true'].includes(String(cr||'').toLowerCase());q.calculatorRequired=raw.calculator_required===true||raw.calculatorRequired===true;if(q.calculatorRequired)q.calculatorAllowed=true;return q};
+calculateCorrect=function(q,r){if(r.status==='dontknow'||r.status==='timeout'||r.status==='skipped'||r.status==='unseen')return false;if(q.type==='essay')return r.selfAssessment==='yes';if(isMCQ(q))return norm(r.answer)===norm(q.answer);const ans=String(r.answer??''),exp=String(q.answer??'');if(q.type==='numeric'){const gn=liteNumbers(ans),en=liteNumbers(exp);if(gn.length===1&&en.length===1&&Math.abs(gn[0]-en[0])<=Math.max(0,Number(q.tolerance)||0,1e-9))return true}const acc=[exp,...(q.acceptedAnswers||[])];if(acc.some(x=>liteNormalizeAnswer(x)===liteNormalizeAnswer(ans)))return true;if(liteRegexMatch(q.answerRegex,ans))return true;if(acc.some(x=>liteSmartNumericEquivalent(x,ans,q.tolerance)))return true;return false};
+function sanitizeSvgLite(svgText){const raw=String(svgText||'').trim();if(!raw||typeof DOMParser==='undefined')return'';try{const parser=new DOMParser(),doc=parser.parseFromString(raw,'image/svg+xml');if(doc.querySelector('parsererror'))return'';const root=doc.documentElement;if(!root||root.nodeName.toLowerCase()!=='svg')return'';const tags=new Set(['svg','g','path','line','polyline','polygon','rect','circle','ellipse','text','tspan','defs','marker','lineargradient','radialgradient','stop']),attrs=new Set(['viewbox','width','height','x','y','x1','y1','x2','y2','cx','cy','r','rx','ry','d','points','fill','stroke','stroke-width','stroke-linecap','stroke-linejoin','font-size','font-weight','text-anchor','dominant-baseline','transform','opacity','offset','stop-color','stop-opacity','marker-end','marker-start','preserveaspectratio','id']);[...root.querySelectorAll('*')].forEach(el=>{if(!tags.has(el.nodeName.toLowerCase())){el.remove();return}[...el.attributes].forEach(a=>{const n=a.name.toLowerCase(),v=String(a.value||'');if(!attrs.has(n)){el.removeAttribute(a.name);return}if((n==='marker-end'||n==='marker-start')&&!/^url\(\#[A-Za-z0-9_.:-]+\)$/.test(v))el.removeAttribute(a.name);if(n==='id'&&!/^[A-Za-z_][A-Za-z0-9_.:-]*$/.test(v))el.removeAttribute(a.name)})});[...root.attributes].forEach(a=>{const n=a.name.toLowerCase();if(!attrs.has(n)&&n!=='xmlns')root.removeAttribute(a.name)});root.setAttribute('xmlns','http://www.w3.org/2000/svg');if(!root.getAttribute('viewBox')&&!root.getAttribute('viewbox')){const w=parseFloat(root.getAttribute('width')||'0'),h=parseFloat(root.getAttribute('height')||'0');if(w>0&&h>0)root.setAttribute('viewBox',`0 0 ${w} ${h}`)}return new XMLSerializer().serializeToString(root)}catch(e){console.warn('SVG stimulus rejected',e);return''}}
+stimulusHTML=function(s){if(!s)return'';if(s.type==='svg'){const safe=sanitizeSvgLite(s.svg);if(!safe)return`<div class="stimulus"><div class="stimulus-title">Diagram unavailable</div><div class="muted">This SVG stimulus was rejected by the safety filter.</div></div>`;return`<div class="stimulus svg">${s.title?`<div class="stimulus-title">${esc(s.title)}</div>`:''}<div class="stimulus-svg-wrap">${safe}</div>${s.source?`<div class="stimulus-source">— ${esc(s.source)}</div>`:''}</div>`}if(!s.text)return'';return`<div class="stimulus ${esc(s.type)}">${s.title?`<div class="stimulus-title">${esc(s.title)}</div>`:''}${esc(s.text)}${s.source?`<div class="stimulus-source">— ${esc(s.source)}</div>`:''}</div>`};
+const LITE_NEW_RESPONSE_BASE=newResponse;newResponse=function(){return{...LITE_NEW_RESPONSE_BASE(),calculatorUsed:false,calculatorOpenCount:0}};
+function openLiteCalculator(){const r=currentResponse();if(r){r.calculatorUsed=true;r.calculatorOpenCount=Number(r.calculatorOpenCount||0)+1;save()}LITE_CALC_OPEN=true;render()}function closeLiteCalculator(){LITE_CALC_OPEN=false;render()}function liteCalcPress(v){if(v==='C'){LITE_CALC_EXPR='';render();return}if(v==='⌫'){LITE_CALC_EXPR=LITE_CALC_EXPR.slice(0,-1);render();return}if(v==='='){try{const e=LITE_CALC_EXPR.replace(/÷/g,'/').replace(/×/g,'*').replace(/\^/g,'**');if(!/^[0-9+\-*/().%\s*]+$/.test(e))throw new Error('unsafe');const x=Function(`"use strict";return (${e})`)();if(Number.isFinite(Number(x)))LITE_CALC_EXPR=String(x)}catch(e){LITE_CALC_EXPR='Error'}render();return}if(LITE_CALC_EXPR==='Error')LITE_CALC_EXPR='';LITE_CALC_EXPR+=String(v);render()}
+function calculatorOverlayLite(){if(!LITE_CALC_OPEN)return'';const ks=['C','(',')','⌫','7','8','9','÷','4','5','6','×','1','2','3','-','0','.','%','+'];return`<div class="lite-calc-overlay" onclick="if(event.target===this)closeLiteCalculator()"><div class="lite-calc"><div class="lite-calc-top"><strong>CALCULATOR</strong><button class="lite-control-pill utility" onclick="closeLiteCalculator()">CLOSE</button></div><div class="lite-calc-display">${esc(LITE_CALC_EXPR||'0')}</div><div class="lite-calc-grid">${ks.map(k=>`<button class="lite-calc-key ${['÷','×','-','+'].includes(k)?'op':''}" onclick='liteCalcPress(${JSON.stringify(k)})'>${esc(k)}</button>`).join('')}<button class="lite-calc-key equal" style="grid-column:1/-1" onclick="liteCalcPress('=')">=</button></div></div></div>`}
+feedbackBlock=function(q,r){if(!r.revealed)return'';const a=active();if(q.type==='essay')return`<div class="essay-review"><h4>Essay self-check</h4><div><strong>Your answer</strong><div class="essay-answer">${esc(r.answer||'—')}</div></div><div style="margin-top:10px"><strong>Reference answer</strong><div class="essay-answer">${esc(q.modelAnswer||'—')}</div></div>${q.rubric.length?`<ul class="essay-rubric">${q.rubric.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:''}<div class="essay-assess"><button class="${r.selfAssessment==='yes'?'active':''}" onclick="setEssayAssessment(${a.currentIndex},'yes')">YES</button><button class="${r.selfAssessment==='partly'?'active':''}" onclick="setEssayAssessment(${a.currentIndex},'partly')">PARTLY</button><button class="${r.selfAssessment==='no'?'active':''}" onclick="setEssayAssessment(${a.currentIndex},'no')">NO</button></div>${r.selfAssessment?`<button class="button primary block" style="margin-top:10px" onclick="nextQuestion()">${a.currentIndex===a.packet.questions.length-1?'REVIEW SESSION':'NEXT QUESTION'} →</button>`:''}</div>`;const c=r.correct===true,t=r.timedOut?'Timed out':r.status==='dontknow'?"Don't know":c?'Correct':'Wrong';if(!isMCQ(q))return`<div class="feedback typed-feedback-card ${c?'correct':'wrong'}"><div class="typed-feedback-body"><span class="feedback-tag">${esc(t)}</span><div class="typed-feedback-answer"><strong>Correct answer:</strong> ${esc(q.answer||'—')}</div>${q.explanation?`<div class="typed-feedback-explanation">${esc(q.explanation)}</div>`:''}${!c&&q.whyWrong&&q.whyWrong[r.answer]?`<div class="typed-feedback-explanation"><strong>Your trap:</strong> ${esc(q.whyWrong[r.answer])}</div>`:''}</div><button class="typed-feedback-next" onclick="nextQuestion()">${a.currentIndex===a.packet.questions.length-1?'REVIEW SESSION':'NEXT QUESTION'} →</button></div>`;return`<div class="feedback ${c?'correct':'wrong'}"><span class="feedback-tag">${esc(t)}</span><p><strong>Correct answer:</strong> ${esc(q.answer||'—')}</p>${q.explanation?`<p class="muted">${esc(q.explanation)}</p>`:''}${!c&&q.whyWrong&&q.whyWrong[r.answer]?`<p class="muted"><strong>Your trap:</strong> ${esc(q.whyWrong[r.answer])}</p>`:''}</div>`};
+function liteControlStrip(q,r,commentOpen){const calc=q.calculatorAllowed?`<button class="lite-calc-button" onclick="openLiteCalculator()">CALC${r.calculatorUsed?' ✓':''}</button>`:'';return`<div class="lite-control-strip">${CONFIDENCES.map(([id,l])=>`<button class="lite-control-pill ${r.confidence===id?'active':''}" ${r.locked?'disabled':''} onclick="setConfidence('${id}')">${esc(l)}</button>`).join('')}<button class="lite-control-pill danger" ${r.locked?'disabled':''} onclick="dontKnow()">I DON'T KNOW</button><button class="lite-control-pill utility" ${r.locked?'disabled':''} onclick="skipQuestion()">SKIP</button><button class="lite-control-pill comment ${r.comment||commentOpen?'active':''}" onclick="toggleCommentBox()">COMMENT ${commentOpen?'−':'＋'}</button>${calc}</div>${commentOpen?`<div class="lite-comment-pop"><textarea oninput="setComment(this.value)" placeholder="Question wording, something to ask the subject chat, or anything worth remembering...">${esc(r.comment||'')}</textarea><div class="lite-comment-meta"><button class="lite-flag-toggle ${r.flagged?'active':''}" onclick="toggleFlag()">${r.flagged?'FLAGGED ✓':'FLAG QUESTION'}</button></div></div>`:''}`}
+drill=function(){const a=active();if(!a)return`<div class="empty">No active drill.</div>`;const q=currentQuestion(),r=currentResponse(),total=a.packet.questions.length,editable=responseEditable(a,r),showTimer=a.setupSnapshot.timing!=='off'&&a.setupSnapshot.showTimer,canSubmit=(isMCQ(q)?r.answer!==null:String(r.draft||r.answer||'').trim()!=='')&&!r.locked,wrongRevealed=r.revealed&&r.correct===false,done=completedCount(a),left=Math.max(0,total-done),commentOpen=commentIsOpen();let qi='';if(isMCQ(q)){qi=`<div class="choices">${Object.entries(q.choices).map(([k,v])=>{let c='answer-option-shell';if(r.answer===k)c+=' selected';if(r.revealed&&norm(k)===norm(q.answer))c+=' correct';else if(r.revealed&&r.answer===k&&!r.correct)c+=' wrong';const sel=r.answer===k,lab=a.setupSnapshot.feedback==='immediate'?(r.revealed?'NEXT →':'CHECK →'):'NEXT →',fn=a.setupSnapshot.feedback==='immediate'?(r.revealed?'nextQuestion()':'submitAnswer()'):'submitAnswer()';return`<div class="${c}"><button class="answer-main" ${editable?'':'disabled'} onclick="setChoice('${esc(k)}')"><strong>${esc(k)}.</strong> ${esc(v)}</button>${sel?`<button class="answer-inline-action ${r.revealed?'next':''}" onclick="${fn}">${a.currentIndex===total-1&&r.revealed?'REVIEW →':lab}</button>`:''}</div>`}).join('')}</div>`}else if(q.type==='essay'){qi=`<div class="field essay-field"><label>Your essay answer</label><textarea id="essay-answer" ${editable?'':'disabled'} oninput="setDraft(this.value)" placeholder="Write your response here...">${esc(r.draft||r.answer||'')}</textarea></div>${!r.locked?`<button class="button primary typed-submit" ${canSubmit?'':'disabled'} onclick="submitAnswer()">${a.setupSnapshot.feedback==='end'?'SAVE & NEXT':'SUBMIT ESSAY'}</button>`:''}`}else{qi=`<div class="field typed-field"><label>Your final answer</label><input id="typed-answer" value="${esc(r.draft||r.answer||'')}" ${editable?'':'disabled'} oninput="setDraft(this.value)" placeholder="Type the final answer here"></div>${!r.locked?`<button class="button primary typed-submit" ${canSubmit?'':'disabled'} onclick="submitAnswer()">${a.setupSnapshot.feedback==='end'?'SAVE & NEXT':'SUBMIT ANSWER'}</button>`:''}`}const fb=feedbackBlock(q,r),slot=a.setupSnapshot.feedback==='immediate'?(fb?`<div class="feedback-slot">${fb}</div>`:''):fb;const h=`<div class="drill-shell"><div class="drill-progress-row"><button class="progress-shell" onclick="navigatorOpen=true;render()"><div class="progress-track"><div class="progress-fill" style="width:${done/total*100}%"></div></div><div class="progress-meta"><span>Q${a.currentIndex+1} / ${total}</span><span>${left} left</span></div></button><button class="pause-square" onclick="pause()">Ⅱ</button></div><section class="panel question-panel"><div class="question-core">${showTimer?`<div class="timer" id="timer">${a.setupSnapshot.timing==='ai'?fmt(Math.max(0,(q.timeLimitSeconds||0)-elapsedCurrent())):fmt(elapsedCurrent())}</div>${a.setupSnapshot.timing==='ai'?`<div class="question-limit">AI-set limit · ${fmt(q.timeLimitSeconds)}</div>`:''}`:''}${stimulusHTML(q.stimulus)}<div class="question-text">${esc(q.prompt)}</div>${qi}${liteControlStrip(q,r,commentOpen)}${slot}${wrongRevealed&&q.type!=='essay'?`<div class="error-classifier"><label>What happened? (optional)</label><div class="error-types">${ERROR_TYPES.filter(x=>!['timeout','unclassified'].includes(x[0])).map(([id,l])=>`<button class="error-type ${r.errorType===id?'active':''}" onclick="setErrorType('${id}')">${esc(l)}</button>`).join('')}</div></div>`:''}${r.revealed&&q.type!=='essay'?`<div class="field compact-note"><label>One-line note (optional)</label><input value="${esc(r.note||'')}" oninput="setNote(this.value)" placeholder="Example: I confused the method."></div>`:''}</div></section></div>`;return h+(a.paused?`<div class="pause-overlay" onclick="if(event.target===this)resume()"><div class="pause-card"><div class="eyebrow">Paused</div><h1 style="font-size:2rem">Timer stopped.</h1><p class="muted">The question is hidden while the drill is paused.</p><button class="button primary block" onclick="resume()">RESUME</button><button class="button block" style="margin-top:8px" onclick="exitDrill()">SAVE & RETURN HOME</button></div></div>`:'')+calculatorOverlayLite()+navigatorOverlay()};
+const LITE_ATTEMPT_FROM_BASE=attemptFrom;attemptFrom=function(q,r){return{...LITE_ATTEMPT_FROM_BASE(q,r),answerRegex:q.answerRegex||[],calculatorAllowed:Boolean(q.calculatorAllowed),calculatorRequired:Boolean(q.calculatorRequired),calculatorUsed:Boolean(r.calculatorUsed),calculatorOpenCount:Number(r.calculatorOpenCount||0)}};
+function liteRecurringTagStats(s){return tagStats(s).filter(([,v])=>v.total>=2).slice(0,8)}
+function liteResultsText(s){const c=confidenceStats(s),errs=errorStats(s),total=s.totalQuestions||s.answered||0;return`# DBD Base Results\n\n**Subject:** ${s.subject}\n**Topic:** ${s.topic||'—'}\n**Source:** ${s.source||'—'}\n**Drill type:** ${sessionTestType(s)}\n**Difficulty:** ${s.difficulty||'—'}\n**Questions:** ${total}\n**Correct:** ${s.correct}\n**Accuracy:** ${Math.round(s.accuracy||0)}%\n**Skipped / unanswered:** ${s.unanswered??c.unanswered}${s.totalTime===null?'':`\n**Active time:** ${fmt(s.totalTime)}`}\n\n## Confidence\n- Sure + correct: ${c.sureCorrect}\n- Not sure + correct: ${c.unsureCorrect}\n- Ngasal + correct: ${c.guessCorrect}\n- Incorrect: ${c.incorrect}\n- I don't know: ${c.dontknow}\n- Skipped / unanswered: ${c.unanswered}\n\n## Error causes recorded\n${errs.length?errs.map(([e,n])=>`- ${errorLabel(e)}: ${n}`).join('\n'):'- none'}\n\n## Questions\n\n${(s.attempts||[]).map((a,i)=>`### Q${i+1}\n${a.prompt}\n\n- **Your answer:** ${a.selected||'—'}\n- **Correct / reference answer:** ${a.answer||'—'}\n- **Result:** ${a.correct?'Correct':a.status==='dontknow'?"I don't know":['skipped','unseen'].includes(a.status)?'Skipped / unanswered':a.timedOut?'Timed out':'Wrong'}\n- **Confidence:** ${a.confidence||'—'}\n- **Error cause:** ${a.errorType&&a.errorType!=='unclassified'?errorLabel(a.errorType):'—'}\n- **Calculator used:** ${a.calculatorUsed?'Yes':'No'}\n- **Tags:** ${a.tags?.join(', ')||'—'}\n- **Note:** ${a.note||'—'}\n- **Comment:** ${a.comment||'—'}\n- **Explanation:** ${a.explanation||'—'}`).join('\n\n')}`}
+async function copyLiteResults(id,button){const s=getSession(id);if(!s)return;const text=liteResultsText(s);if(text.length>LITE_RESULTS_COPY_LIMIT){download(`dbd-base-results-${slug(s.subject)}-${localDay()}.md`,text,'text/markdown');if(button){const old=button.textContent;button.textContent='DOWNLOADED .MD ✓';setTimeout(()=>button.textContent=old,1500)}return}await copyText(text,button)}
+summary=function(){const s=getSession(currentSessionId)||DATA.completedSessions[0];if(!s)return`<div class="empty">No completed session.</div>`;const tags=liteRecurringTagStats(s),errs=errorStats(s),total=s.totalQuestions||s.answered||1;return`<section class="summary-shell"><div class="score-hero"><div class="score-main">${s.correct}<span>/${total}</span></div><div class="score-percent">${Math.round(s.accuracy||0)}%</div><div class="score-caption">${esc(s.subject)}${s.topic?` · ${esc(s.topic)}`:''} · ${esc(sessionTestType(s))}</div></div><div class="summary-surface"><div class="report-tabs"><button class="report-tab active">SUMMARY</button><button class="report-tab" onclick="viewFullQuiz('${s.id}')">FULL QUIZ</button></div><section class="summary-section"><div class="summary-heading">Confidence</div>${confidenceVisual(s)}</section>${tags.length?`<section class="summary-section"><div class="summary-heading">Results by recurring tag</div><div class="weak-list">${tags.map(([t,v],i)=>`<div class="weak-row"><div class="weak-rank">${i+1}</div><div class="weak-name">${esc(t)}<small>${v.correct}/${v.total} correct</small></div><div class="weak-score">${v.correct}/${v.total}</div></div>`).join('')}</div><div class="lite-results-note">These are packet tags with at least two questions. DBD Base is reporting results, not diagnosing why they happened.</div></section>`:''}${errs.length?`<section class="summary-section"><div class="summary-heading">Error causes you recorded</div><div class="error-list">${errs.map(([e,n])=>`<div class="error-row"><span>${esc(errorLabel(e))}</span><strong>${n}</strong></div>`).join('')}</div></section>`:''}<div class="result-actions one"><button class="button primary" onclick="copyLiteResults('${s.id}',this)">COPY RESULTS</button></div><div class="compact-actions"><button class="button tiny" onclick="downloadJson('${s.id}')">JSON ↓</button><button class="button tiny" ${s.wrong?'':'disabled'} onclick="retrySession('${s.id}')">RETRY WRONG</button></div></div></section>`};
+litePrompt=function(subjectName=''){const subjectLine=subjectName?`TARGET SUBJECT: ${subjectName}`:'TARGET SUBJECT: infer the subject from this chat';return`# DBD Base v1.0 — Drill Packet Request\n\nDBD Base is deliberately simple: ChatGPT prepares trustworthy JSON drill material; DBD serves it and records what happened.\n\n${subjectLine}\n\nBefore generating anything, inspect the files, lesson history, prior explanations, current mistakes, and assessment context available in THIS subject chat. Do not generate JSON immediately. First ask me ONE compact setup question covering material scope, drill type, working style, answer format, question count, difficulty, feedback, timing, calculator policy, and optional focus. Recommend sensible defaults, then wait.\n\n## Educational doctrine\nThink carefully before writing questions. Every question consumes attention. Prefer meaningful understanding, procedures, misconceptions, transfer, or exam-relevant decisions. Internally design and audit the set before exporting. Do not reveal private chain-of-thought.\n\n## Renderer-aware rules\n- Use type \"numeric\" when the answer is fundamentally numeric.\n- Use clean canonical numeric answers and tolerance where valid.\n- Add accepted_answers for predictable wording variants.\n- Add answer_regex when safe flexible text matching is useful.\n- 74, 74°, and \"74 derajat\" must not become different mathematical truths.\n- SVG diagrams are supported with stimulus.type=\"svg\" and stimulus.svg. Keep SVG simple: no scripts, handlers, external links, embedded HTML, or remote resources.\n- Use calculator_allowed/calculator_required only when pedagogically appropriate; DBD records calculator use.\n- Tags must be human-facing curriculum concepts in the session language; do not use backend labels like retrieval, transfer, or composite routing.\n- Keep answer and explanation separate; explanations should be concise repair, not accidental mini-lessons.\n\nAfter I confirm setup, return a valid DBD Base JSON packet. For 16+ questions, attach a downloadable .json file rather than pasting a giant packet.\n\nTop-level dbd_version must be \"DBD Base v1.0\". Questions may include id,type,prompt,choices,answer,accepted_answers,answer_regex,tolerance,explanation,tags,difficulty,paper_required,calculator_allowed,calculator_required,stimulus,model_answer,rubric,time_limit_seconds.\n\nDo not output Question Banks, scheduler weights, maintenance priorities, or full-DBD architecture.`};
+createVanillaPrompt=function(){return litePrompt('')};copyVanilla=function(button){return copyLitePrompt(button,'')};
+const LITE_BOOT_BASE=bootLite10;bootLite10=function(){LITE_BOOT_BASE();DATA.product='DBD Base';DATA.baseVersion='1.0';save();console.info(`DBD Base v1.0 · ${BUILD_ID} · ${LITE_SCHEMA_LABEL}`)};
+
+
+/* =====================================================================
+   DBD Base v1.0 — field-tested renderer baseline
+   ===================================================================== */
+
+const BASE_SCHEMA_LABEL='Schema 7 Base';
+const BASE_RESULTS_COPY_LIMIT=16000;
+let BASE_ERROR_MORE_OPEN=false;
+
+/* Make typed submit react immediately without a full re-render. */
+const BASE_SET_DRAFT_PREV=setDraft;
+setDraft=function(v){
+  BASE_SET_DRAFT_PREV(v);
+  const btn=document.querySelector('.typed-submit');
+  if(btn)btn.disabled=!String(v??'').trim();
+};
+
+/* Carry numeric keyboard intent in the packet. */
+const BASE_NORMALIZE_QUESTION_PREV=normalizeQuestion;
+normalizeQuestion=function(raw,i){
+  const q=BASE_NORMALIZE_QUESTION_PREV(raw,i);
+  if(!q)return q;
+  q.numericMode=String(raw.numeric_mode??raw.numericMode??(q.type==='numeric'?'decimal':'text')).toLowerCase();
+  return q;
+};
+
+/* Harden SVG sanitation for markers, gradients and viewBox-based technical diagrams. */
+sanitizeSvgLite=function(svgText){
+  const raw=String(svgText||'').trim();
+  if(!raw||typeof DOMParser==='undefined')return'';
+  try{
+    const parser=new DOMParser();
+    const doc=parser.parseFromString(raw,'image/svg+xml');
+    if(doc.querySelector('parsererror'))return'';
+    const root=doc.documentElement;
+    if(!root||root.nodeName.toLowerCase()!=='svg')return'';
+
+    const allowedTags=new Set([
+      'svg','g','path','line','polyline','polygon','rect','circle','ellipse',
+      'text','tspan','defs','marker','lineargradient','radialgradient','stop',
+      'clippath'
+    ]);
+    const allowedAttrs=new Set([
+      'viewbox','width','height','x','y','x1','y1','x2','y2','cx','cy','r','rx','ry',
+      'd','points','fill','stroke','stroke-width','stroke-linecap','stroke-linejoin',
+      'stroke-dasharray','stroke-dashoffset','vector-effect',
+      'font-size','font-weight','font-style','text-anchor','dominant-baseline',
+      'letter-spacing','textlength','lengthadjust',
+      'transform','opacity','offset','stop-color','stop-opacity',
+      'marker-end','marker-start','marker-mid',
+      'markerwidth','markerheight','refx','refy','orient','markerunits',
+      'preserveaspectratio','id','clip-path','fill-rule','clip-rule',
+      'gradientunits','gradienttransform','fx','fy','fr','spreadmethod'
+    ]);
+
+    const safeUrl=v=>/^url\(\#[A-Za-z_][A-Za-z0-9_.:-]*\)$/.test(String(v||'').trim());
+
+    [...root.querySelectorAll('*')].forEach(el=>{
+      if(!allowedTags.has(el.nodeName.toLowerCase())){
+        el.remove();return;
+      }
+      [...el.attributes].forEach(attr=>{
+        const name=attr.name.toLowerCase(),val=String(attr.value||'');
+        if(!allowedAttrs.has(name)){
+          el.removeAttribute(attr.name);return;
+        }
+        if(['marker-end','marker-start','marker-mid','clip-path'].includes(name)&&!safeUrl(val)){
+          el.removeAttribute(attr.name);return;
+        }
+        if(['fill','stroke'].includes(name)&&/^url\(/i.test(val)&&!safeUrl(val)){
+          el.removeAttribute(attr.name);return;
+        }
+        if(name==='id'&&!/^[A-Za-z_][A-Za-z0-9_.:-]*$/.test(val)){
+          el.removeAttribute(attr.name);return;
+        }
+      });
+    });
+
+    [...root.attributes].forEach(attr=>{
+      const name=attr.name.toLowerCase();
+      if(!allowedAttrs.has(name)&&name!=='xmlns')root.removeAttribute(attr.name);
+    });
+
+    root.setAttribute('xmlns','http://www.w3.org/2000/svg');
+    root.setAttribute('preserveAspectRatio','xMidYMid meet');
+
+    if(!root.getAttribute('viewBox')&&!root.getAttribute('viewbox')){
+      const w=parseFloat(root.getAttribute('width')||'0');
+      const h=parseFloat(root.getAttribute('height')||'0');
+      if(w>0&&h>0)root.setAttribute('viewBox',`0 0 ${w} ${h}`);
+      else root.setAttribute('viewBox','0 0 420 280');
+    }
+
+    root.removeAttribute('width');
+    root.removeAttribute('height');
+    return new XMLSerializer().serializeToString(root);
+  }catch(e){
+    console.warn('SVG stimulus rejected',e);
+    return'';
+  }
+};
+
+function baseNumericInputAttrs(q){
+  if(q.type!=='numeric')return `inputmode="text"`;
+  const m=String(q.numericMode||'decimal').toLowerCase();
+  if(m==='integer'||m==='whole'||m==='digits')return `inputmode="numeric" pattern="[0-9]*"`;
+  return `inputmode="decimal"`;
+}
+
+function baseTypedAnswerShell(q,r,total,index){
+  const cls=r.correct===true?'correct':'wrong';
+  const shown=String(r.answer??r.draft??'').trim()||'—';
+  return `<div class="base-typed-answer-shell ${cls}">
+    <div class="base-typed-answer-value">${esc(shown)}</div>
+    <button class="base-typed-answer-next" onclick="nextQuestion()">${index===total-1?'REVIEW':'NEXT →'}</button>
+  </div>`;
+}
+
+function baseControlStrip(q,r,commentOpen){
+  const calc=q.calculatorAllowed?`<button class="base-control-pill calc" onclick="openLiteCalculator()">CALC${r.calculatorUsed?' ✓':''}</button>`:'';
+  return `<div class="base-control-strip" aria-label="Answer controls">
+    ${CONFIDENCES.map(([id,l])=>`<button class="base-control-pill ${r.confidence===id?'active':''}" ${r.locked?'disabled':''} onclick="setConfidence('${id}')">${esc(l)}</button>`).join('')}
+    <button class="base-control-pill" ${r.locked?'disabled':''} onclick="skipQuestion()">SKIP</button>
+    <button class="base-control-pill comment ${r.comment||commentOpen?'active':''}" onclick="toggleCommentBox()">COMMENT ${commentOpen?'−':'＋'}</button>
+    ${calc}
+  </div>
+  ${commentOpen?`<div class="lite-comment-pop">
+    <textarea oninput="setComment(this.value)" placeholder="Something to ask your subject chat, a wording issue, or anything worth preserving...">${esc(r.comment||'')}</textarea>
+    <div class="lite-comment-meta"><button class="lite-flag-toggle ${r.flagged?'active':''}" onclick="toggleFlag()">${r.flagged?'FLAGGED ✓':'FLAG QUESTION'}</button></div>
+  </div>`:''}`;
+}
+
+function toggleBaseErrorMore(){BASE_ERROR_MORE_OPEN=!BASE_ERROR_MORE_OPEN;render()}
+
+function baseErrorClassifier(r){
+  const primary=[['formula','Forgot rule/formula'],['method','Wrong method'],['careless','Careless/rushed']];
+  const more=ERROR_TYPES.filter(([id])=>!['formula','method','careless','timeout','unclassified'].includes(id));
+  return `<div class="error-classifier">
+    <label>What happened? (optional)</label>
+    <div class="base-error-row">
+      ${primary.map(([id,l])=>`<button class="base-error-pill ${r.errorType===id?'active':''}" onclick="setErrorType('${id}')">${esc(l)}</button>`).join('')}
+      <button class="base-error-pill base-more-pill ${BASE_ERROR_MORE_OPEN?'active':''}" onclick="toggleBaseErrorMore()">•••</button>
+    </div>
+    ${BASE_ERROR_MORE_OPEN?`<div class="base-error-more">${more.map(([id,l])=>`<button class="base-error-pill ${r.errorType===id?'active':''}" onclick="setErrorType('${id}')">${esc(l)}</button>`).join('')}</div>`:''}
+  </div>`;
+}
+
+/* Typed feedback is explanation-only. NEXT lives beside the submitted answer. */
+feedbackBlock=function(q,r){
+  if(!r.revealed)return'';
+  const a=active();
+
+  if(q.type==='essay'){
+    return `<div class="essay-review"><h4>Essay self-check</h4><div><strong>Your answer</strong><div class="essay-answer">${esc(r.answer||'—')}</div></div><div style="margin-top:10px"><strong>Reference answer</strong><div class="essay-answer">${esc(q.modelAnswer||'—')}</div></div>${q.rubric.length?`<ul class="essay-rubric">${q.rubric.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:''}<div class="essay-assess"><button class="${r.selfAssessment==='yes'?'active':''}" onclick="setEssayAssessment(${a.currentIndex},'yes')">YES</button><button class="${r.selfAssessment==='partly'?'active':''}" onclick="setEssayAssessment(${a.currentIndex},'partly')">PARTLY</button><button class="${r.selfAssessment==='no'?'active':''}" onclick="setEssayAssessment(${a.currentIndex},'no')">NO</button></div>${r.selfAssessment?`<button class="button primary block" style="margin-top:10px" onclick="nextQuestion()">${a.currentIndex===a.packet.questions.length-1?'REVIEW SESSION':'NEXT QUESTION'} →</button>`:''}</div>`;
+  }
+
+  const correct=r.correct===true;
+  const tag=r.timedOut?'Timed out':r.status==='dontknow'?"Don't know":correct?'Correct':'Wrong';
+
+  if(!isMCQ(q)){
+    return `<div class="feedback typed-feedback-card ${correct?'correct':'wrong'}">
+      <span class="feedback-tag">${esc(tag)}</span>
+      <div class="typed-feedback-answer"><strong>Correct answer:</strong> ${esc(q.answer||'—')}</div>
+      ${q.explanation?`<div class="typed-feedback-explanation">${esc(q.explanation)}</div>`:''}
+      ${!correct&&q.whyWrong&&q.whyWrong[r.answer]?`<div class="typed-feedback-explanation"><strong>Your trap:</strong> ${esc(q.whyWrong[r.answer])}</div>`:''}
+    </div>`;
+  }
+
+  return `<div class="feedback ${correct?'correct':'wrong'}"><span class="feedback-tag">${esc(tag)}</span><p><strong>Correct answer:</strong> ${esc(q.answer||'—')}</p>${q.explanation?`<p class="muted">${esc(q.explanation)}</p>`:''}${!correct&&q.whyWrong&&q.whyWrong[r.answer]?`<p class="muted"><strong>Your trap:</strong> ${esc(q.whyWrong[r.answer])}</p>`:''}</div>`;
+};
+
+/* Field-tested drill composition:
+   - MCQ keeps selected-answer NEXT.
+   - typed NEXT is beside the submitted answer.
+   - feedback comes before certainty/skip/comment after reveal.
+   - no I DON'T KNOW button and no duplicate one-line note. */
+drill=function(){
+  const a=active();
+  if(!a)return `<div class="empty">No active drill.</div>`;
+
+  const q=currentQuestion(),r=currentResponse(),total=a.packet.questions.length,
+    editable=responseEditable(a,r),
+    showTimer=a.setupSnapshot.timing!=='off'&&a.setupSnapshot.showTimer,
+    canSubmit=(isMCQ(q)?r.answer!==null:String(r.draft||r.answer||'').trim()!=='')&&!r.locked,
+    wrongRevealed=r.revealed&&r.correct===false,
+    done=completedCount(a),left=Math.max(0,total-done),
+    commentOpen=commentIsOpen();
+
+  let questionInput='';
+
+  if(isMCQ(q)){
+    questionInput=`<div class="choices">${Object.entries(q.choices).map(([k,v])=>{
+      let c='answer-option-shell';
+      if(r.answer===k)c+=' selected';
+      if(r.revealed&&norm(k)===norm(q.answer))c+=' correct';
+      else if(r.revealed&&r.answer===k&&!r.correct)c+=' wrong';
+      const selected=r.answer===k;
+      const actionLabel=a.setupSnapshot.feedback==='immediate'?(r.revealed?'NEXT →':'CHECK →'):'NEXT →';
+      const actionFn=a.setupSnapshot.feedback==='immediate'?(r.revealed?'nextQuestion()':'submitAnswer()'):'submitAnswer()';
+      return `<div class="${c}">
+        <button class="answer-main" ${editable?'':'disabled'} onclick="setChoice('${esc(k)}')"><strong>${esc(k)}.</strong> ${esc(v)}</button>
+        ${selected?`<button class="answer-inline-action ${r.revealed?'next':''}" onclick="${actionFn}">${a.currentIndex===total-1&&r.revealed?'REVIEW →':actionLabel}</button>`:''}
+      </div>`;
+    }).join('')}</div>`;
+  }else if(q.type==='essay'){
+    questionInput=`<div class="field essay-field"><label>Your essay answer</label><textarea id="essay-answer" ${editable?'':'disabled'} oninput="setDraft(this.value)" placeholder="Write your response here...">${esc(r.draft||r.answer||'')}</textarea></div>${!r.locked?`<button class="button primary typed-submit" ${canSubmit?'':'disabled'} onclick="submitAnswer()">${a.setupSnapshot.feedback==='end'?'SAVE & NEXT':'SUBMIT ESSAY'}</button>`:''}`;
+  }else{
+    questionInput=r.revealed
+      ? `<div class="field typed-field"><label>Your final answer</label>${baseTypedAnswerShell(q,r,total,a.currentIndex)}</div>`
+      : `<div class="field typed-field"><label>Your final answer</label><input id="typed-answer" ${baseNumericInputAttrs(q)} value="${esc(r.draft||r.answer||'')}" ${editable?'':'disabled'} oninput="setDraft(this.value)" placeholder="${q.type==='numeric'?'Type a number':'Type the final answer here'}"></div><button class="button primary typed-submit" ${canSubmit?'':'disabled'} onclick="submitAnswer()">${a.setupSnapshot.feedback==='end'?'SAVE & NEXT':'SUBMIT ANSWER'}</button>`;
+  }
+
+  const feedback=feedbackBlock(q,r);
+  const feedbackSlot=a.setupSnapshot.feedback==='immediate'?(feedback?`<div class="feedback-slot">${feedback}</div>`:''):feedback;
+  const controls=baseControlStrip(q,r,commentOpen);
+  const afterAnswer=r.revealed?`${feedbackSlot}${controls}`:`${controls}${feedbackSlot}`;
+
+  const html=`<div class="drill-shell">
+    <div class="drill-progress-row">
+      <button class="progress-shell" onclick="navigatorOpen=true;render()" aria-label="Open question navigator">
+        <div class="progress-track"><div class="progress-fill" style="width:${done/total*100}%"></div></div>
+        <div class="progress-meta"><span>Q${a.currentIndex+1} / ${total}</span><span>${left} left</span></div>
+      </button>
+      <button class="pause-square" onclick="pause()" aria-label="Pause drill">Ⅱ</button>
+    </div>
+    <section class="panel question-panel"><div class="question-core">
+      ${showTimer?`<div class="timer" id="timer">${a.setupSnapshot.timing==='ai'?fmt(Math.max(0,(q.timeLimitSeconds||0)-elapsedCurrent())):fmt(elapsedCurrent())}</div>${a.setupSnapshot.timing==='ai'?`<div class="question-limit">AI-set limit · ${fmt(q.timeLimitSeconds)}</div>`:''}`:''}
+      ${stimulusHTML(q.stimulus)}
+      <div class="question-text">${esc(q.prompt)}</div>
+      ${questionInput}
+      ${afterAnswer}
+      ${wrongRevealed&&q.type!=='essay'?baseErrorClassifier(r):''}
+    </div></section>
+  </div>`;
+
+  return html+
+    (a.paused?`<div class="pause-overlay" onclick="if(event.target===this)resume()"><div class="pause-card"><div class="eyebrow">Paused</div><h1 style="font-size:2rem">Timer stopped.</h1><p class="muted">The question is hidden while the drill is paused.</p><button class="button primary block" onclick="resume()">RESUME</button><button class="button block" style="margin-top:8px" onclick="exitDrill()">SAVE & RETURN HOME</button></div></div>`:'')+
+    calculatorOverlayLite()+
+    navigatorOverlay();
+};
+
+/* Reset expanded error taxonomy when advancing. */
+const BASE_NEXT_QUESTION_PREV=nextQuestion;
+nextQuestion=function(){
+  BASE_ERROR_MORE_OPEN=false;
+  return BASE_NEXT_QUESTION_PREV();
+};
+
+/* Base home/menu: simple packet-first contract. */
+function baseHome(){
+  const drills=DATA.completedSessions.length;
+  const answered=liteSessionAnswered();
+  const ongoing=DATA.activeSessions.length+(DATA.pendingPacket?1:0);
+  return `<section class="lite-home">
+    <div class="lite-home-hero">
+      <div class="base-home-kicker">DBD Base v1.0</div>
+      <h1>Ready to drill.</h1>
+      <p>Prepare a trustworthy JSON packet in your subject chat, import it, and drill. Base renders the questions well and records what happened; it does not decide what you should study.</p>
+      <div class="lite-primary-actions">
+        <button class="button primary" onclick="copyLitePrompt(this)">COPY PROMPT</button>
+        <button class="button" onclick="route('import')">IMPORT PACKAGE</button>
+      </div>
+      <div class="lite-home-note">Base supports MCQ, numeric/short answers, essays, sanitized SVG diagrams, and an optional in-app calculator.</div>
+    </div>
+    ${ongoingSessions(true)}
+    <div class="lite-stat-strip">
+      <div class="lite-stat"><strong>${drills}</strong><span>Completed drills</span></div>
+      <div class="lite-stat"><strong>${answered}</strong><span>Answered</span></div>
+      <div class="lite-stat"><strong>${ongoing}</strong><span>Ongoing</span></div>
+    </div>
+  </section>`;
+}
+home=function(){return baseHome()};
+
+/* Base subject copy: history lane, not scheduler surface. */
+subjectsView=function(){
+  const chosen=liteSelectedSubjectName();
+  if(chosen){
+    const x=liteSubjectSummary(chosen),recent=x.sessions.slice(0,5);
+    return `<section class="dev2-page">
+      <button class="back-link" onclick="liteCloseSubject()">← Subjects</button>
+      <div class="lite-home-hero" style="margin-top:8px">
+        <div class="eyebrow">DBD Base</div>
+        <h1>${esc(chosen)}</h1>
+        <p>${x.sessions.length} completed drills · ${x.answered} historical answers.</p>
+        <div class="lite-subject-actions">
+          <button class="button primary" onclick='copyLitePrompt(this,${JSON.stringify(chosen)})'>COPY PROMPT</button>
+          <button class="button" onclick="route('import')">IMPORT PACKAGE</button>
+        </div>
+      </div>
+      <div class="lite-recent">
+        ${recent.length?recent.map(s=>`<div class="lite-recent-row"><div><strong>${esc(s.topic||'Drill')}</strong><small>${esc(sessionTestType(s))} · ${dev2HumanDate(s.completedAt)}</small></div><strong>${s.correct||0}/${s.totalQuestions||s.answered||0}</strong></div>`).join(''):`<div class="lite-recent-row"><div><strong>No completed drills yet</strong><small>Import a packet when this subject is ready.</small></div></div>`}
+      </div>
+    </section>`;
+  }
+  const names=liteSubjectNames();
+  return `<section class="dev2-page">
+    <div class="dev2-page-head"><div><div class="eyebrow">Historical lanes</div><h1>Subjects</h1><p>Subjects organize packet history. Base does not assign maintenance weights.</p></div></div>
+    <div class="lite-subject-list">
+      ${names.map(name=>{const x=liteSubjectSummary(name);return `<button class="lite-subject-card" onclick='liteOpenSubjectByName(${JSON.stringify(name)})'><div><h3>${esc(name)}</h3><p>${x.sessions.length} completed drills · ${x.answered} answers${x.active.length?` · ${x.active.length} ongoing`:''}</p></div><div class="right"><strong>${x.sessions.length}</strong><small>DRILLS</small></div></button>`}).join('')||'<div class="empty">No subjects yet. Import your first packet from Home.</div>'}
+    </div>
+  </section>`;
+};
+
+/* Base history wording. */
+history=function(){
+  const sessions=(DATA.completedSessions||[]).slice().sort((a,b)=>new Date(b.completedAt)-new Date(a.completedAt));
+  const legacyBursts=burstEventsDev2();
+  const events=[...sessions.map(s=>({type:'session',at:s.completedAt,s})),...legacyBursts.map(b=>({type:'legacy',at:b.completedAt,b}))].sort((a,b)=>new Date(b.at)-new Date(a.at));
+  let last='',body='';
+  for(const e of events){
+    const day=historyDateLabel(e.at);if(day!==last){body+=`<div class="dev2-history-date">${esc(day)}</div>`;last=day}
+    if(e.type==='session'){
+      const s=e.s,total=s.totalQuestions||s.answered||0;
+      body+=`<div class="dev2-section" style="margin-top:6px"><div class="dev2-history-row session" onclick="viewSession('${s.id}')"><div><strong>${esc(s.subject)} · ${esc(s.topic||'Drill')}</strong><small>${esc(sessionTestType(s))} · ${fmt(s.totalTime)}</small></div><div class="dev2-history-score"><strong>${s.correct||0}/${total}</strong><small>DRILL</small></div></div></div>`;
+    }else{
+      const b=e.b;
+      body+=`<div class="dev2-section" style="margin-top:6px"><div class="dev2-history-row"><div><strong>${esc(b.subject)} · Legacy Stream</strong><small>${b.count} retrievals · preserved experimental history</small></div><div class="dev2-history-score"><strong>${b.correct}/${b.count}</strong><small>LEGACY</small></div></div></div>`;
+    }
+  }
+  return `<section class="dev2-page"><div class="dev2-page-head"><div><div class="eyebrow">Recorded work</div><h1>History</h1><p>Completed packet drills stay here. Base records evidence; semantic interpretation belongs upstream.</p></div></div>${body||'<div class="empty">No completed drills yet.</div>'}</section>`;
+};
+
+/* Factual Base settings while keeping Schema-7 data compatibility. */
+dataView=function(){
+  const bytes=new Blob([JSON.stringify(DATA)]).size;
+  const size=bytes<1048576?`${(bytes/1024).toFixed(1)} KB`:`${(bytes/1048576).toFixed(2)} MB`;
+  const legacyBank=(DATA.questionBank||[]).length;
+  const legacyAttempts=(DATA.streamEngine?.attempts||[]).length;
+  return `<section class="dev2-page">
+    <div class="dev2-page-head"><div><div class="eyebrow">DBD Base v1.0 · ${BUILD_ID}</div><h1>Settings</h1><p>${BASE_SCHEMA_LABEL}. Numeric compatibility remains Schema 7.</p></div></div>
+    <div class="settings-group">
+      <div class="settings-title">Base model</div>
+      <div class="metric-row"><span>Product</span><strong>DBD Base v1.0</strong></div>
+      <div class="metric-row"><span>Data schema</span><strong>${BASE_SCHEMA_LABEL}</strong></div>
+      <div class="metric-row"><span>Runtime</span><strong>JSON packet → render → drill → history</strong></div>
+      <div class="metric-row"><span>Completed drills</span><strong>${DATA.completedSessions.length}</strong></div>
+      <div class="metric-row"><span>Ongoing drills</span><strong>${DATA.activeSessions.length}</strong></div>
+    </div>
+    <div class="settings-group">
+      <div class="settings-title">Renderer capabilities</div>
+      <div class="metric-row"><span>Question surfaces</span><strong>MCQ · numeric · short · essay · SVG</strong></div>
+      <div class="metric-row"><span>Optional tools</span><strong>calculator · flexible answer match</strong></div>
+    </div>
+    <div class="settings-group">
+      <div class="settings-title">Preserved experimental data</div>
+      <div class="lite-legacy-note"><strong>${legacyBank} old Question Bank records</strong> and <strong>${legacyAttempts} experimental Stream attempts</strong> remain in the Vault for compatibility/history. Base does not schedule them.</div>
+    </div>
+    <div class="settings-group">
+      <div class="settings-title">DBD Vault</div>
+      <p class="note">The browser key remains <strong>dbd_gazali</strong>.</p>
+      <div class="data-actions"><button class="button primary" onclick="exportVault()">EXPORT VAULT</button><button class="button" onclick="mergeVault()">MERGE VAULT</button></div>
+      <details class="validation-details" style="margin-top:10px"><summary>Replacement restore</summary><div><button class="button small" onclick="importBackup()">REPLACE FROM BACKUP</button></div></details>
+    </div>
+    <div class="settings-group"><div class="settings-title">Storage</div><div class="metric-row"><span>Approx. local data</span><strong>${size}</strong></div></div>
+  </section>`;
+};
+
+/* Results are one factual handoff. */
+liteResultsText=function(s){
+  const c=confidenceStats(s),errs=errorStats(s),total=s.totalQuestions||s.answered||0;
+  return `# DBD Base Results
+
+**Subject:** ${s.subject}
+**Topic:** ${s.topic||'—'}
+**Source:** ${s.source||'—'}
+**Drill type:** ${sessionTestType(s)}
+**Difficulty:** ${s.difficulty||'—'}
+**Questions:** ${total}
+**Correct:** ${s.correct}
+**Accuracy:** ${Math.round(s.accuracy||0)}%
+**Skipped / unanswered:** ${s.unanswered??c.unanswered}
+${s.totalTime===null?'':`**Active time:** ${fmt(s.totalTime)}`}
+
+## Confidence
+- Sure + correct: ${c.sureCorrect}
+- Not sure + correct: ${c.unsureCorrect}
+- Ngasal + correct: ${c.guessCorrect}
+- Incorrect: ${c.incorrect}
+- Skipped / unanswered: ${c.unanswered}
+
+## Error causes recorded
+${errs.length?errs.map(([e,n])=>`- ${errorLabel(e)}: ${n}`).join('\n'):'- none'}
+
+## Questions
+
+${(s.attempts||[]).map((a,i)=>`### Q${i+1}
+${a.prompt}
+
+- **Your answer:** ${a.selected||'—'}
+- **Correct / reference answer:** ${a.answer||'—'}
+- **Result:** ${a.correct?'Correct':['skipped','unseen'].includes(a.status)?'Skipped / unanswered':a.timedOut?'Timed out':'Wrong'}
+- **Confidence:** ${a.confidence||'—'}
+- **Error cause:** ${a.errorType&&a.errorType!=='unclassified'?errorLabel(a.errorType):'—'}
+- **Calculator used:** ${a.calculatorUsed?'Yes':'No'}
+- **Tags:** ${a.tags?.join(', ')||'—'}
+- **Comment:** ${a.comment||'—'}
+- **Explanation:** ${a.explanation||'—'}`).join('\n\n')}`;
+};
+
+copyLiteResults=async function(id,button){
+  const s=getSession(id);if(!s)return;
+  const text=liteResultsText(s);
+  if(text.length>BASE_RESULTS_COPY_LIMIT){
+    download(`dbd-base-results-${slug(s.subject)}-${localDay()}.md`,text,'text/markdown');
+    if(button){const old=button.textContent;button.textContent='DOWNLOADED .MD ✓';setTimeout(()=>button.textContent=old,1500)}
+    return;
+  }
+  await copyText(text,button);
+};
+
+/* Base renderer-aware prompt. */
+litePrompt=function(subjectName=''){
+  const subjectLine=subjectName?`TARGET SUBJECT: ${subjectName}`:'TARGET SUBJECT: infer the subject from this chat';
+  return `# DBD Base v1.0 — Drill Packet Request
+
+DBD Base is the stable execution layer: ChatGPT prepares trustworthy JSON drill material; Base renders it, runs the drill, and records what happened. Base does not decide what I should study.
+
+${subjectLine}
+
+Before generating anything, inspect the files, lesson history, prior explanations, current mistakes, and assessment context available in THIS subject chat.
+
+Do not generate JSON immediately. First ask me ONE compact setup question covering:
+- material scope;
+- drill type;
+- conceptual/no-paper vs full problem solving;
+- MCQ vs Mixed;
+- question count;
+- difficulty;
+- feedback;
+- timing;
+- calculator policy;
+- optional focus.
+
+Recommend sensible defaults from the real subject context, then wait for my answer.
+
+## Educational doctrine
+
+Think carefully before writing questions. Every question consumes attention. Prefer questions that reveal or reinforce meaningful understanding, procedures, misconceptions, transfer, or exam-relevant decisions. Internally design and audit the set before export. Do not reveal private chain-of-thought.
+
+## Renderer-aware rules
+
+DBD Base supports:
+- MCQ;
+- short answer;
+- numeric answer;
+- self-check;
+- essay;
+- text/context/quote stimuli;
+- sanitized inline SVG diagrams;
+- an optional built-in calculator.
+
+### Numeric interaction
+When the answer is fundamentally numeric, use type "numeric".
+Use:
+- numeric_mode: "integer" for whole-number entry;
+- numeric_mode: "decimal" when decimals may be needed.
+Base will request a number-oriented phone keyboard.
+
+Store the canonical answer cleanly (for example 74 rather than prose).
+Use tolerance for valid approximations.
+Add accepted_answers for predictable variants.
+Add answer_regex only when safe flexible textual matching is useful.
+
+Equivalent forms such as 74, 74°, and "74 derajat" must not become different mathematical truths.
+
+### SVG
+Use stimulus.type="svg" and place the SVG markup in stimulus.svg.
+Diagrams may include lines, paths, circles, ellipses, rectangles, polygons, polylines, text, groups, markers/arrowheads, gradients and clipping paths.
+Use a correct viewBox and keep every important label/shape inside it.
+Prefer generous margins so labels are not clipped.
+Do not include scripts, event handlers, external links, remote resources, embedded HTML, or clickable SVG objects.
+Base sanitizes SVG and makes the diagram non-interactive so it cannot steal answer-button hitboxes.
+
+This is especially appropriate for:
+- mathematics: geometry, graphs, matrices, transformations, vectors;
+- physics: motion graphs, vectors, free-body diagrams, trajectories, circular motion, energy diagrams;
+- chemistry: skeletal formulae, nomenclature, isomers, reaction arrows, bond highlighting, energy profiles.
+
+### Calculator
+Use calculator_allowed:true only when calculator access is appropriate.
+Use calculator_required:true only when genuinely required.
+Base records whether its built-in calculator was opened.
+
+### Tags
+Tags must be human-facing taught concepts/skills in the language of the session.
+Do not use model-process labels such as "retrieval", "transfer", or "composite routing" unless those are genuinely taught skill names.
+
+### Explanations
+Keep the canonical answer and explanation separate.
+Explanation should usually be concise repair, not an accidental mini-lesson.
+
+## Output
+
+After I confirm setup, return a valid DBD Base JSON packet.
+For 16+ questions, attach a downloadable .json file rather than pasting a giant packet.
+
+Required top-level shape:
+{
+  "dbd_version": "DBD Base v1.0",
+  "campaign": "...",
+  "subject": "...",
+  "topic": "...",
+  "source": "...",
+  "test_type": "coverage|focused|depth|repair|mastery|exam",
+  "working_style": "concept|full",
+  "answer_format": "mcq|mixed",
+  "difficulty": "Easy|Medium|Difficult|Adaptive",
+  "questions": []
+}
+
+Question fields may include:
+{
+  "id": "q1",
+  "type": "mcq|short|numeric|self_check|essay",
+  "numeric_mode": "integer|decimal",
+  "prompt": "...",
+  "choices": {"A":"..."},
+  "answer": "...",
+  "accepted_answers": [],
+  "answer_regex": [],
+  "tolerance": 0,
+  "explanation": "...",
+  "tags": ["human-facing concept"],
+  "difficulty": "easy|medium|hard",
+  "paper_required": false,
+  "calculator_allowed": false,
+  "calculator_required": false,
+  "stimulus": {
+    "type": "context|quote|passage|svg",
+    "title": "",
+    "text": "",
+    "svg": "",
+    "source": ""
+  },
+  "model_answer": "",
+  "rubric": [],
+  "time_limit_seconds": 90
+}
+
+Do not include raw HTML. SVG is allowed only through stimulus.type="svg".
+Do not output Question Banks, scheduler weights, maintenance priorities, or full-DBD architecture.`;
+};
+createVanillaPrompt=function(){return litePrompt('')};
+copyVanilla=function(button){return copyLitePrompt(button,'')};
+
+/* Base boot: keep numeric Schema 7 compatibility while relabeling the branch. */
+const BASE_BOOT_PREV=bootLite10;
+bootLite10=function(){
+  BASE_BOOT_PREV();
+  DATA.schemaVersion=7;
+  DATA.schemaLabel=BASE_SCHEMA_LABEL;
+  DATA.product='DBD Base';
+  DATA.baseVersion='1.0';
+  DATA.appVersion=APP_VERSION;
+  save();
+  console.info(`DBD Base v1.0 · ${BUILD_ID} · ${BASE_SCHEMA_LABEL}`);
+};
+
+/* ================= END DBD BASE v1.0 ================= */
 
 bootLite10();
 /* ================= END v0.9.8.4.1 BOOT ================= */

@@ -1,5 +1,5 @@
 const APP_VERSION='DBD Base v1.0';
-const BUILD_ID='base-1.0-r2';
+const BUILD_ID='base-1.0-r4';
 const STORAGE_KEY='dbd_gazali';
 const LARGE_PACKET_THRESHOLD=15;
 const SUBJECTS=[
@@ -6818,6 +6818,159 @@ home=function(){return baseHomeR2()};
 renderNav=function(){const nav=document.getElementById('navigation');if(view==='drill'){nav.innerHTML='';return}const items=[['subjects','Subjects'],['history','History']];nav.innerHTML=items.map(([id,l])=>`<button class="${view===id?'active':''}" onclick="route('${id}')">${l}</button>`).join('')+`<button class="nav-gear-dev2 ${view==='data'?'active':''}" onclick="route('data')" aria-label="Settings">⚙</button>`};
 dataView=function(){const bytes=new Blob([JSON.stringify(DATA)]).size,size=bytes<1048576?`${(bytes/1024).toFixed(1)} KB`:`${(bytes/1048576).toFixed(2)} MB`,legacyBank=(DATA.questionBank||[]).length,legacyAttempts=(DATA.streamEngine?.attempts||[]).length,records=baseSubjectRecords(),aliasCount=records.reduce((n,r)=>n+baseSubjectAliases(r).filter(a=>aliasNorm(a)!==aliasNorm(r.name)).length,0);return`<section class="dev2-page"><div class="dev2-page-head"><div><div class="eyebrow">DBD Base v1.0 · ${BUILD_ID}</div><h1>Settings</h1><p>${BASE_SCHEMA_LABEL}. Numeric compatibility remains Schema 7.</p></div></div><div class="settings-group"><div class="settings-title">Base model</div><div class="metric-row"><span>Product</span><strong>DBD Base v1.0</strong></div><div class="metric-row"><span>Data schema</span><strong>${BASE_SCHEMA_LABEL}</strong></div><div class="metric-row"><span>Runtime</span><strong>JSON packet → render → drill → history</strong></div><div class="metric-row"><span>Canonical subjects</span><strong>${records.length}</strong></div><div class="metric-row"><span>Subject aliases</span><strong>${aliasCount}</strong></div></div><div class="settings-group"><div class="settings-title">Subject schema</div>${records.length?records.map(r=>{const aliases=baseSubjectAliases(r).filter(a=>aliasNorm(a)!==aliasNorm(r.name));return`<div class="base-schema-subject"><strong>${esc(r.name)}</strong><small>${aliases.length?`aliases: ${esc(aliases.join(' · '))}`:'no aliases'}</small></div>`}).join(''):'<div class="note">No subjects yet.</div>'}</div><div class="settings-group"><div class="settings-title">Renderer capabilities</div><div class="metric-row"><span>Question surfaces</span><strong>MCQ · numeric · short · essay · SVG</strong></div><div class="metric-row"><span>Optional tools</span><strong>calculator · flexible answer match</strong></div></div><div class="settings-group"><div class="settings-title">Preserved experimental data</div><div class="lite-legacy-note"><strong>${legacyBank} old Question Bank records</strong> and <strong>${legacyAttempts} experimental Stream attempts</strong> remain in the Vault for compatibility/history. Base does not schedule them.</div></div><div class="settings-group"><div class="settings-title">DBD Vault</div><p class="note">The browser key remains <strong>dbd_gazali</strong>.</p><div class="data-actions"><button class="button primary" onclick="exportVault()">EXPORT VAULT</button><button class="button" onclick="mergeVault()">MERGE VAULT</button></div><details class="validation-details" style="margin-top:10px"><summary>Replacement restore</summary><div><button class="button small" onclick="importBackup()">REPLACE FROM BACKUP</button></div></details></div><div class="settings-group"><div class="settings-title">Storage</div><div class="metric-row"><span>Approx. local data</span><strong>${size}</strong></div></div></section>`};
 /* ================= END DBD BASE v1.0 r2 ================= */
+
+/* =====================================================================
+   DBD BASE v1.0 — r3
+   ===================================================================== */
+
+let BASE_R3_CALC_OPEN=false;
+let BASE_R3_CALC_EXPR='';
+let BASE_R3_ERROR_MORE=false;
+
+function baseR3Appearance(){return DATA?.settings?.appearance==='light'?'light':'dark'}
+function baseR3ApplyAppearance(){const mode=baseR3Appearance();document.documentElement.setAttribute('data-theme',mode);document.documentElement.style.colorScheme=mode}
+function setBaseAppearance(mode){if(!DATA.settings)DATA.settings={};DATA.settings.appearance=mode==='light'?'light':'dark';save();baseR3ApplyAppearance();render()}
+function baseR3AppearanceControl(){const mode=baseR3Appearance();return `<div class="base-r3-appearance" role="group" aria-label="Appearance"><button class="${mode==='dark'?'active':''}" onclick="setBaseAppearance('dark')">DARK</button><button class="${mode==='light'?'active':''}" onclick="setBaseAppearance('light')">LIGHT</button></div>`}
+const BASE_R3_RENDER_PREV=render;render=function(){baseR3ApplyAppearance();return BASE_R3_RENDER_PREV()};
+
+function baseR3MapSvgColor(value,tag,attr){
+  const v=String(value||'').trim().toLowerCase();if(!v)return value;
+  const known={'#e8edf0':'var(--svg-main)','#eef2f4':'var(--svg-label)','#8f9aa1':'var(--svg-muted)','#7f8a90':'var(--svg-muted)','#7f898f':'var(--svg-muted)','#f4b400':'var(--svg-accent)','#7db7ff':'var(--svg-secondary)','#70a7ff':'var(--svg-secondary)','#f05a5a':'var(--svg-danger)','#ef5350':'var(--svg-danger)','#6bd27d':'var(--svg-success)','#67c56a':'var(--svg-success)'};
+  if(known[v])return known[v];
+  if(v==='currentcolor')return attr==='fill'&&tag==='text'?'var(--svg-label)':'var(--svg-main)';
+  if(tag==='text'&&['#000','#000000','black'].includes(v))return 'var(--svg-label)';
+  return value;
+}
+
+sanitizeSvgLite=function(svgText){
+  const raw=String(svgText||'').trim();if(!raw||typeof DOMParser==='undefined')return'';
+  try{
+    const doc=new DOMParser().parseFromString(raw,'image/svg+xml');if(doc.querySelector('parsererror'))return'';
+    const root=doc.documentElement;if(!root||root.nodeName.toLowerCase()!=='svg')return'';
+    const tags=new Set(['svg','g','path','line','polyline','polygon','rect','circle','ellipse','text','tspan','defs','marker','lineargradient','radialgradient','stop','clippath']);
+    const attrs=new Set(['viewbox','width','height','x','y','x1','y1','x2','y2','cx','cy','r','rx','ry','d','points','fill','stroke','stroke-width','stroke-linecap','stroke-linejoin','stroke-dasharray','stroke-dashoffset','vector-effect','font-size','font-weight','font-style','text-anchor','dominant-baseline','letter-spacing','textlength','lengthadjust','transform','opacity','offset','stop-color','stop-opacity','marker-end','marker-start','marker-mid','markerwidth','markerheight','refx','refy','orient','markerunits','preserveaspectratio','id','class','clip-path','fill-rule','clip-rule','gradientunits','gradienttransform','fx','fy','fr','spreadmethod']);
+    const classes=new Set(['svg-main-line','svg-accent-line','svg-muted-line','svg-secondary-line','svg-danger-line','svg-success-line','svg-label','svg-accent-label','svg-secondary-label','svg-danger-label','svg-success-label','svg-accent-fill','svg-secondary-fill','svg-danger-fill','svg-success-fill','dbd-svg-text','dbd-svg-root']);
+    const safeUrl=v=>/^url\(\#[A-Za-z_][A-Za-z0-9_.:-]*\)$/.test(String(v||'').trim());
+    [...root.querySelectorAll('*')].forEach(el=>{
+      const tag=el.nodeName.toLowerCase();if(!tags.has(tag)){el.remove();return}
+      [...el.attributes].forEach(a=>{
+        const n=a.name.toLowerCase(),val=String(a.value||'');
+        if(!attrs.has(n)){el.removeAttribute(a.name);return}
+        if(n==='class'){const kept=val.split(/\s+/).filter(c=>classes.has(c));if(kept.length)el.setAttribute('class',kept.join(' '));else el.removeAttribute(a.name);return}
+        if(['marker-end','marker-start','marker-mid','clip-path'].includes(n)&&!safeUrl(val)){el.removeAttribute(a.name);return}
+        if(['fill','stroke'].includes(n)&&/^url\(/i.test(val)&&!safeUrl(val)){el.removeAttribute(a.name);return}
+        if(n==='id'&&!/^[A-Za-z_][A-Za-z0-9_.:-]*$/.test(val)){el.removeAttribute(a.name);return}
+        if(n==='fill'||n==='stroke')el.setAttribute(a.name,baseR3MapSvgColor(val,tag,n));
+      });
+      if(tag==='text'||tag==='tspan'){
+        const cls=(el.getAttribute('class')||'').split(/\s+/).filter(Boolean);if(!cls.includes('dbd-svg-text'))cls.push('dbd-svg-text');el.setAttribute('class',cls.join(' '));
+        if(!el.hasAttribute('fill'))el.setAttribute('fill','var(--svg-label)');
+        if((el.textContent||'').includes('°')){const y=parseFloat(el.getAttribute('y')||'');if(Number.isFinite(y))el.setAttribute('y',String(y-7))}
+      }
+      if(['line','polyline'].includes(tag)&&!el.hasAttribute('fill'))el.setAttribute('fill','none');
+      if(tag==='path'&&el.hasAttribute('stroke')&&!el.hasAttribute('fill'))el.setAttribute('fill','none');
+      if(['circle','ellipse','rect','polygon'].includes(tag)&&el.hasAttribute('stroke')&&!el.hasAttribute('fill'))el.setAttribute('fill','none');
+    });
+    [...root.attributes].forEach(a=>{const n=a.name.toLowerCase();if(!attrs.has(n)&&n!=='xmlns')root.removeAttribute(a.name)});
+    root.setAttribute('class','dbd-svg-root');root.setAttribute('xmlns','http://www.w3.org/2000/svg');root.setAttribute('preserveAspectRatio','xMidYMid meet');
+    if(!root.getAttribute('viewBox')&&!root.getAttribute('viewbox')){const w=parseFloat(root.getAttribute('width')||'0'),h=parseFloat(root.getAttribute('height')||'0');root.setAttribute('viewBox',w>0&&h>0?`0 0 ${w} ${h}`:'0 0 420 280')}
+    root.removeAttribute('width');root.removeAttribute('height');return new XMLSerializer().serializeToString(root);
+  }catch(e){console.warn('SVG stimulus rejected',e);return''}
+};
+
+function baseR3EvalCalc(){if(!BASE_R3_CALC_EXPR.trim()||BASE_R3_CALC_EXPR==='Error')return null;try{const e=BASE_R3_CALC_EXPR.replace(/÷/g,'/').replace(/×/g,'*');if(!/^[0-9+\-*/().%\s]+$/.test(e))return null;const n=Function(`"use strict";return (${e})`)();return typeof n==='number'&&Number.isFinite(n)?n:null}catch(e){return null}}
+function baseR3ToggleCalc(){BASE_R3_CALC_OPEN=!BASE_R3_CALC_OPEN;if(BASE_R3_CALC_OPEN){const r=currentResponse();if(r){r.calculatorUsed=true;r.calculatorOpenCount=Number(r.calculatorOpenCount||0)+1;save()}}render()}
+function baseR3CalcPress(v){if(v==='AC')BASE_R3_CALC_EXPR='';else if(v==='⌫')BASE_R3_CALC_EXPR=BASE_R3_CALC_EXPR.slice(0,-1);else if(v==='='){const n=baseR3EvalCalc();BASE_R3_CALC_EXPR=n===null?'Error':String(n)}else{if(BASE_R3_CALC_EXPR==='Error')BASE_R3_CALC_EXPR='';BASE_R3_CALC_EXPR+=String(v)}render()}
+function baseR3CalculatorPanel(){if(!BASE_R3_CALC_OPEN)return'';const preview=baseR3EvalCalc(),keys=['AC','⌫','(',')','7','8','9','÷','4','5','6','×','1','2','3','-','0','.','%','+'];return `<div class="base-r3-calculator"><div class="base-r3-calc-head"><strong>CALCULATOR</strong><button onclick="baseR3ToggleCalc()" aria-label="Close calculator">×</button></div><div class="base-r3-calc-screen"><div class="base-r3-calc-expression">${esc(BASE_R3_CALC_EXPR||'0')}</div><div class="base-r3-calc-preview">${preview!==null&&BASE_R3_CALC_EXPR.trim()?`= ${esc(String(preview))}`:''}</div></div><div class="base-r3-calc-grid">${keys.map(k=>`<button class="${['÷','×','-','+'].includes(k)?'operator':''}" onclick='baseR3CalcPress(${JSON.stringify(k)})'>${esc(k)}</button>`).join('')}<button class="equals" onclick="baseR3CalcPress('=')">=</button></div></div>`}
+
+function baseR3ControlBar(r,commentOpen){return `<div class="base-r3-controlbar"><div class="base-r3-confidence" role="group" aria-label="Confidence">${CONFIDENCES.map(([id,l])=>`<button class="${r.confidence===id?'active':''}" ${r.locked?'disabled':''} onclick="setConfidence('${id}')">${esc(l)}</button>`).join('')}</div><div class="base-r3-divider"></div><div class="base-r3-tools"><button class="base-r3-tool calc ${BASE_R3_CALC_OPEN?'active':''}" onclick="baseR3ToggleCalc()" aria-label="Calculator">🧮</button><button class="base-r3-tool comment ${commentOpen||r.comment?'active':''}" onclick="toggleCommentBox()" aria-label="Comment">💬</button><button class="base-r3-tool flag ${r.flagged?'active':''}" onclick="toggleFlag()" aria-label="Flag question">⚑</button></div></div>${baseR3CalculatorPanel()}${commentOpen?`<div class="base-r3-comment"><textarea oninput="setComment(this.value)" placeholder="Something worth preserving...">${esc(r.comment||'')}</textarea></div>`:''}`}
+function toggleBaseR3ErrorMore(){BASE_R3_ERROR_MORE=!BASE_R3_ERROR_MORE;render()}
+function baseR3ErrorClassifier(r){const primary=[['formula','Forgot rule'],['method','Wrong method'],['careless','Careless']],more=ERROR_TYPES.filter(([id])=>!['formula','method','careless','timeout','unclassified'].includes(id));return `<div class="base-r3-error"><div class="base-r3-error-title">WHAT HAPPENED? (OPTIONAL)</div><div class="base-r3-error-row">${primary.map(([id,l])=>`<button class="${r.errorType===id?'active':''}" onclick="setErrorType('${id}')">${esc(l)}</button>`).join('')}<button class="${BASE_R3_ERROR_MORE?'active':''}" onclick="toggleBaseR3ErrorMore()">•••</button></div>${BASE_R3_ERROR_MORE?`<div class="base-r3-error-more">${more.map(([id,l])=>`<button class="${r.errorType===id?'active':''}" onclick="setErrorType('${id}')">${esc(l)}</button>`).join('')}</div>`:''}</div>`}
+function baseR3TypedAnswerShell(r,total,index){const cls=r.correct===true?'correct':'wrong',shown=String(r.answer??r.draft??'').trim()||'—';return `<div class="base-r3-answer-result ${cls}"><div class="base-r3-answer-value">${esc(shown)}</div><button class="base-r3-answer-next" onclick="nextQuestion()">${index===total-1?'REVIEW':'NEXT →'}</button></div>`}
+
+setDraft=function(v){BASE_SET_DRAFT_PREV(v);const btn=document.querySelector('.typed-submit');if(btn)btn.disabled=!String(v??'').trim()};
+
+feedbackBlock=function(q,r){
+  if(!r.revealed)return'';const a=active();
+  if(q.type==='essay')return `<div class="essay-review"><h4>Essay self-check</h4><div><strong>Your answer</strong><div class="essay-answer">${esc(r.answer||'—')}</div></div><div style="margin-top:10px"><strong>Reference answer</strong><div class="essay-answer">${esc(q.modelAnswer||'—')}</div></div>${q.rubric.length?`<ul class="essay-rubric">${q.rubric.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:''}<div class="essay-assess"><button class="${r.selfAssessment==='yes'?'active':''}" onclick="setEssayAssessment(${a.currentIndex},'yes')">YES</button><button class="${r.selfAssessment==='partly'?'active':''}" onclick="setEssayAssessment(${a.currentIndex},'partly')">PARTLY</button><button class="${r.selfAssessment==='no'?'active':''}" onclick="setEssayAssessment(${a.currentIndex},'no')">NO</button></div>${r.selfAssessment?`<button class="button primary block" style="margin-top:10px" onclick="nextQuestion()">${a.currentIndex===a.packet.questions.length-1?'REVIEW SESSION':'NEXT QUESTION'} →</button>`:''}</div>`;
+  const c=r.correct===true,t=r.timedOut?'Timed out':r.status==='dontknow'?"Don't know":c?'Correct':'Wrong';
+  if(!isMCQ(q))return `<div class="feedback typed-feedback-card ${c?'correct':'wrong'}"><span class="feedback-tag">${esc(t)}</span><div class="typed-feedback-answer"><strong>Correct answer:</strong> ${esc(q.answer||'—')}</div>${q.explanation?`<div class="typed-feedback-explanation">${esc(q.explanation)}</div>`:''}${!c&&q.whyWrong&&q.whyWrong[r.answer]?`<div class="typed-feedback-explanation"><strong>Your trap:</strong> ${esc(q.whyWrong[r.answer])}</div>`:''}</div>`;
+  return `<div class="feedback ${c?'correct':'wrong'}"><span class="feedback-tag">${esc(t)}</span><p><strong>Correct answer:</strong> ${esc(q.answer||'—')}</p>${q.explanation?`<p class="muted">${esc(q.explanation)}</p>`:''}${!c&&q.whyWrong&&q.whyWrong[r.answer]?`<p class="muted"><strong>Your trap:</strong> ${esc(q.whyWrong[r.answer])}</p>`:''}</div>`;
+};
+
+drill=function(){
+  const a=active();if(!a)return `<div class="empty">No active drill.</div>`;
+  const q=currentQuestion(),r=currentResponse(),total=a.packet.questions.length,editable=responseEditable(a,r),showTimer=a.setupSnapshot.timing!=='off'&&a.setupSnapshot.showTimer,canSubmit=(isMCQ(q)?r.answer!==null:String(r.draft||r.answer||'').trim()!=='')&&!r.locked,wrongRevealed=r.revealed&&r.correct===false,done=completedCount(a),left=Math.max(0,total-done),commentOpen=commentIsOpen();
+  let qi='';
+  if(isMCQ(q)){
+    qi=`<div class="choices">${Object.entries(q.choices).map(([k,v])=>{let c='answer-option-shell';if(r.answer===k)c+=' selected';if(r.revealed&&norm(k)===norm(q.answer))c+=' correct';else if(r.revealed&&r.answer===k&&!r.correct)c+=' wrong';const selected=r.answer===k,actionLabel=a.setupSnapshot.feedback==='immediate'?(r.revealed?'NEXT →':'CHECK →'):'NEXT →',actionFn=a.setupSnapshot.feedback==='immediate'?(r.revealed?'nextQuestion()':'submitAnswer()'):'submitAnswer()';return `<div class="${c}"><button class="answer-main" ${editable?'':'disabled'} onclick="setChoice('${esc(k)}')"><strong>${esc(k)}.</strong> ${esc(v)}</button>${selected?`<button class="answer-inline-action ${r.revealed?'next':''}" onclick="${actionFn}">${a.currentIndex===total-1&&r.revealed?'REVIEW →':actionLabel}</button>`:''}</div>`}).join('')}</div>${!r.revealed?`<div class="base-r3-mcq-skip"><button onclick="skipQuestion()">SKIP →</button></div>`:''}`;
+  }else if(q.type==='essay'){
+    qi=r.revealed?`<div class="field essay-field"><label>Your essay answer</label><textarea disabled>${esc(r.answer||r.draft||'')}</textarea></div>`:`<div class="field essay-field"><label>Your essay answer</label><textarea id="essay-answer" ${editable?'':'disabled'} oninput="setDraft(this.value)" placeholder="Write your response here...">${esc(r.draft||r.answer||'')}</textarea></div><div class="base-r3-submit-split"><button class="base-r3-submit typed-submit" ${canSubmit?'':'disabled'} onclick="submitAnswer()">${a.setupSnapshot.feedback==='end'?'SAVE & NEXT':'SUBMIT ESSAY'}</button><button class="base-r3-skip" onclick="skipQuestion()">SKIP</button></div>`;
+  }else{
+    qi=r.revealed?`<div class="field typed-field"><label>Your final answer</label>${baseR3TypedAnswerShell(r,total,a.currentIndex)}</div>`:`<div class="field typed-field"><label>Your final answer</label><input id="typed-answer" ${baseNumericInputAttrs(q)} value="${esc(r.draft||r.answer||'')}" ${editable?'':'disabled'} oninput="setDraft(this.value)" placeholder="${q.type==='numeric'?'Type a number':'Type the final answer here'}"></div><div class="base-r3-submit-split"><button class="base-r3-submit typed-submit" ${canSubmit?'':'disabled'} onclick="submitAnswer()">${a.setupSnapshot.feedback==='end'?'SAVE & NEXT':'SUBMIT ANSWER'}</button><button class="base-r3-skip" onclick="skipQuestion()">SKIP</button></div>`;
+  }
+  const fb=feedbackBlock(q,r),slot=a.setupSnapshot.feedback==='immediate'?(fb?`<div class="feedback-slot">${fb}</div>`:''):fb;
+  const post=r.revealed?`${slot}${wrongRevealed&&q.type!=='essay'?baseR3ErrorClassifier(r):''}${baseR3ControlBar(r,commentOpen)}`:`${baseR3ControlBar(r,commentOpen)}${slot}`;
+  const h=`<div class="drill-shell"><div class="drill-progress-row"><button class="progress-shell" onclick="navigatorOpen=true;render()" aria-label="Open question navigator"><div class="progress-track"><div class="progress-fill" style="width:${done/total*100}%"></div></div><div class="progress-meta"><span>Q${a.currentIndex+1} / ${total}</span><span>${left} left</span></div></button><button class="pause-square" onclick="pause()" aria-label="Pause drill">Ⅱ</button></div><section class="panel question-panel"><div class="question-core">${showTimer?`<div class="timer" id="timer">${a.setupSnapshot.timing==='ai'?fmt(Math.max(0,(q.timeLimitSeconds||0)-elapsedCurrent())):fmt(elapsedCurrent())}</div>${a.setupSnapshot.timing==='ai'?`<div class="question-limit">AI-set limit · ${fmt(q.timeLimitSeconds)}</div>`:''}`:''}${stimulusHTML(q.stimulus)}<div class="question-text">${esc(q.prompt)}</div>${qi}${post}</div></section></div>`;
+  return h+(a.paused?`<div class="pause-overlay" onclick="if(event.target===this)resume()"><div class="pause-card"><div class="eyebrow">Paused</div><h1 style="font-size:2rem">Timer stopped.</h1><p class="muted">The question is hidden while the drill is paused.</p><button class="button primary block" onclick="resume()">RESUME</button><button class="button block" style="margin-top:8px" onclick="exitDrill()">SAVE & RETURN HOME</button></div></div>`:'')+navigatorOverlay();
+};
+
+const BASE_R3_NEXT_PREV=nextQuestion;nextQuestion=function(){BASE_R3_ERROR_MORE=false;BASE_R3_CALC_OPEN=false;BASE_R3_CALC_EXPR='';return BASE_R3_NEXT_PREV()};
+
+dataView=function(){
+  const bytes=new Blob([JSON.stringify(DATA)]).size,size=bytes<1048576?`${(bytes/1024).toFixed(1)} KB`:`${(bytes/1048576).toFixed(2)} MB`,legacyBank=(DATA.questionBank||[]).length,legacyAttempts=(DATA.streamEngine?.attempts||[]).length,records=baseSubjectRecords(),aliasCount=records.reduce((n,r)=>n+baseSubjectAliases(r).filter(a=>aliasNorm(a)!==aliasNorm(r.name)).length,0);
+  return `<section class="dev2-page"><div class="dev2-page-head"><div><div class="eyebrow">DBD Base v1.0 · ${BUILD_ID}</div><h1>Settings</h1><p>${BASE_SCHEMA_LABEL}. Numeric compatibility remains Schema 7.</p></div></div><div class="settings-group"><div class="settings-title">Appearance</div><p class="note">Dark is the default. The same SVG packet adapts to either Base theme.</p>${baseR3AppearanceControl()}</div><div class="settings-group"><div class="settings-title">Base model</div><div class="metric-row"><span>Product</span><strong>DBD Base v1.0</strong></div><div class="metric-row"><span>Build</span><strong>${BUILD_ID}</strong></div><div class="metric-row"><span>Data schema</span><strong>${BASE_SCHEMA_LABEL}</strong></div><div class="metric-row"><span>Runtime</span><strong>JSON packet → render → drill → history</strong></div><div class="metric-row"><span>Canonical subjects</span><strong>${records.length}</strong></div><div class="metric-row"><span>Subject aliases</span><strong>${aliasCount}</strong></div></div><div class="settings-group"><div class="settings-title">Subject schema</div>${records.length?records.map(r=>{const aliases=baseSubjectAliases(r).filter(a=>aliasNorm(a)!==aliasNorm(r.name));return `<div class="base-schema-subject"><strong>${esc(r.name)}</strong><small>${aliases.length?`aliases: ${esc(aliases.join(' · '))}`:'no aliases'}</small></div>`}).join(''):'<div class="note">No subjects yet.</div>'}</div><div class="settings-group"><div class="settings-title">Renderer capabilities</div><div class="metric-row"><span>Question surfaces</span><strong>MCQ · numeric · short · essay · SVG</strong></div><div class="metric-row"><span>Built-in tools</span><strong>calculator · comments · flag · flexible answer match</strong></div></div><div class="settings-group"><div class="settings-title">Preserved experimental data</div><div class="lite-legacy-note"><strong>${legacyBank} old Question Bank records</strong> and <strong>${legacyAttempts} experimental Stream attempts</strong> remain in the Vault for compatibility/history. Base does not schedule them.</div></div><div class="settings-group"><div class="settings-title">DBD Vault</div><p class="note">The browser key remains <strong>dbd_gazali</strong>.</p><div class="data-actions"><button class="button primary" onclick="exportVault()">EXPORT VAULT</button><button class="button" onclick="mergeVault()">MERGE VAULT</button></div><details class="validation-details" style="margin-top:10px"><summary>Replacement restore</summary><div><button class="button small" onclick="importBackup()">REPLACE FROM BACKUP</button></div></details></div><div class="settings-group"><div class="settings-title">Storage</div><div class="metric-row"><span>Approx. local data</span><strong>${size}</strong></div></div></section>`;
+};
+
+litePrompt=function(subjectName=''){
+  const subjectLine=subjectName?`TARGET SUBJECT: ${subjectName}`:'TARGET SUBJECT: infer the subject from this chat';
+  return `# DBD Base v1.0 — Drill Packet Request\n\nDBD Base is a local drill renderer and evidence recorder. ChatGPT prepares trustworthy drill material; Base renders it, records the attempt, and preserves history.\n\n${subjectLine}\n\nBefore generating anything, inspect the files, lesson history, prior explanations, current mistakes, and assessment context in THIS subject chat. Ask ONE compact setup question covering material scope, drill type, working style, answer format, question count, difficulty, feedback, timing, and optional extra focus. Recommend sensible defaults and wait for confirmation.\n\n## Educational doctrine\nThink carefully before writing questions. Every question consumes attention. Prefer meaningful understanding, procedures, misconceptions, transfer, and exam-relevant decisions. Avoid filler and trivial numerical skins. Internally design and audit the set before export.\n\n## Answer matching\nUse type \"numeric\" when the answer is fundamentally numeric. Use numeric_mode \"integer\" or \"decimal\" when useful. Store canonical answers cleanly, add tolerance when valid, accepted_answers for predictable wording variants, and answer_regex only when safe. Equivalent forms such as 74, 74°, and \"74 derajat\" must not become different mathematical truths.\n\n## SVG visual grammar\nDBD Base supports sanitized inline SVG through stimulus.type=\"svg\" and stimulus.svg. SVG is a teaching diagram, not decoration. It should make the relevant relationship visually obvious before the learner finishes reading the prose.\n\nUse semantic classes instead of hard-coded colors:\n- svg-main-line: ordinary geometry / axes / bonds\n- svg-accent-line: the given or relationship the learner should notice\n- svg-muted-line: helper/construction lines\n- svg-secondary-line: a second data series/vector/quantity\n- svg-label: ordinary labels\n- svg-accent-label: highlighted numerical/given labels\n- svg-secondary-label: second-series labels\n- semantic fill variants where needed\n\nNever hard-code hex colors. Base maps semantic classes to Dark and Light themes. Never rely on default SVG text color. Keep labels away from line intersections and boundaries, with about 8–12 px of visual clearance. Degree labels such as 84° should sit clearly above/outside the angle rays or angle arc, never directly on a stroke. If an arc is central, highlight it. If equal radii are the conceptual trigger, show them with matching semantic treatment. Use a generous viewBox so nothing is clipped, and keep the diagram compact: it is a stimulus, not the whole screen. No scripts, event handlers, external links, remote resources, embedded HTML, or clickable SVG objects.\n\n## Calculator\nThe Base calculator is ALWAYS available from the quiz UI and usage is recorded automatically. Do not depend on calculator_allowed to show or hide it. calculator_required may be included only as metadata if genuinely relevant.\n\n## Tags and explanations\nTags must be human-facing taught concepts/skills in the session language. Do not use backend labels like retrieval, transfer, or composite routing unless they are genuinely taught terms. Keep canonical answer and explanation separate; explanations should usually be concise repair, not mini-lessons.\n\n## Output\nAfter I confirm setup, return a valid DBD Base JSON packet. For 16+ questions, attach a downloadable .json file rather than pasting a giant packet. Top-level dbd_version must be \"DBD Base v1.0\". Question fields may include id,type,numeric_mode,prompt,choices,answer,accepted_answers,answer_regex,tolerance,explanation,tags,difficulty,paper_required,calculator_required,stimulus,model_answer,rubric,time_limit_seconds. Do not output Question Banks, scheduler weights, maintenance priorities, or full-DBD architecture.`;
+};
+createVanillaPrompt=function(){return litePrompt('')};copyVanilla=function(button){return copyLitePrompt(button,'')};
+
+const BASE_R3_BOOT_PREV=bootLite10;bootLite10=function(){BASE_R3_BOOT_PREV();if(!DATA.settings)DATA.settings={};if(DATA.settings.appearance!=='light'&&DATA.settings.appearance!=='dark')DATA.settings.appearance='dark';DATA.buildId=BUILD_ID;DATA.baseVersion='1.0';save();baseR3ApplyAppearance();console.info(`DBD Base v1.0 · ${BUILD_ID} · ${BASE_SCHEMA_LABEL}`)};
+
+/* ================= END DBD BASE v1.0 r3 ================= */
+
+
+/* =====================================================================
+   DBD BASE v1.0 r3.1 — Skip / split-control hotfix
+   ===================================================================== */
+
+/* A skipped question should leave the current question and stay skipped.
+   Do not automatically recycle skipped questions during the first pass. */
+nextUnseenIndex=function(a,start=a.currentIndex+1){
+  if(!a)return -1;
+  for(let i=start;i<a.responses.length;i++){
+    if(['unseen','selected'].includes(a.responses[i].status))return i;
+  }
+  for(let i=0;i<Math.min(start,a.responses.length);i++){
+    if(['unseen','selected'].includes(a.responses[i].status))return i;
+  }
+  return -1;
+};
+
+skipQuestion=function(){
+  const a=active(),r=currentResponse();
+  if(!a||!r||r.locked)return;
+
+  accrueTime();
+  r.status='skipped';
+  r.answer=null;
+  r.correct=null;
+  r.revealed=false;
+  r.locked=false;
+  save();
+
+  const n=nextUnseenIndex(a,a.currentIndex+1);
+  if(n<0){
+    route('review');
+    return;
+  }
+  goToQuestion(n);
+};
+
+/* ================= END DBD BASE v1.0 r3.1 ================= */
 
 bootLite10();
 /* ================= END v0.9.8.4.1 BOOT ================= */

@@ -1,3 +1,119 @@
+# DBD Base v1.0 — r4
+
+Build: `base-1.0-r4`  
+Schema: **Schema 7 Base** (numeric compatibility remains `7`)
+
+## r4 — canonical Light-mode pass
+
+r4 replaces screenshot-by-screenshot recoloring with one canonical Light-theme audit layer.
+
+### Visual model
+
+Dark mode remains the machine/interface mode. Light mode is **DBD printed on warm technical paper**:
+
+- warm paper background;
+- slightly lighter primary cards;
+- slightly darker inset surfaces;
+- charcoal ink instead of hard black;
+- warm gray metadata;
+- deep amber for ordinary DBD actions and the logo;
+- brighter yellow reserved for the hazard ribbon;
+- red/green/blue only when semantically meaningful.
+
+### Shell / brand
+
+- DBD logo uses deeper amber in Light mode.
+- BASE becomes quieter gray microtype.
+- Hazard ribbon remains yellow/black but its old shadow is removed.
+- Header is crisp/flat instead of visually floating.
+
+### Codebase audit
+
+The r4 override explicitly covers legacy dark-era surfaces across Home, Ongoing/Pending sessions, Subjects, Subject empty/recent states, History, Review, Navigator, Summary/Results, Full Quiz review, Settings/Data, Preflight, Pause and Navigator overlays, type cards, daily cards, and legacy quiz cards.
+
+This removes the remaining “black island on beige page” effect while preserving Dark mode, Schema 7 Base, Subject aliases, the r3 calculator, semantic SVG renderer, and the r3.1 Skip hotfix.
+
+
+---
+
+# DBD Base v1.0 — r3.2
+
+Build: `base-1.0-r3.2`  
+Schema: **Schema 7 Base** (numeric compatibility remains `7`)
+
+## r3.2
+
+Light mode was reworked after phone testing.
+
+- Replaced stark white surfaces with a warmer, lower-glare paper palette.
+- Added clearer hierarchy between page, card, inset, SVG canvas, and controls.
+- Restored stronger semantic result accents: wrong states are visibly red, correct states visibly green.
+- Kept yellow reserved for DBD action/selection; Comment remains blue; active Flag remains red.
+- Centered the Dark / Light appearance control in Settings.
+- Settings now reads as one coherent warm page instead of stacked white blocks.
+- Pause, Navigator, Preflight, Subject Editor, Vault, and dormant-data surfaces now follow the same warm light palette.
+- Dark mode and the r3.1 Skip hotfix are preserved.
+
+
+---
+
+# DBD Base v1.0 r3.1 — hotfix
+
+Build: `base-1.0-r3.1`
+
+This hotfix keeps the r3 design and Schema 7 Base intact.
+
+## Fixed
+
+- Split Submit/Skip now shares one aligned hitbox. The old `.typed-submit` margin/width styles no longer distort the left side of the split button.
+- Skip now truly skips. A skipped question is not immediately recycled by the first-pass navigator. When no fresh questions remain, Base goes to Review, where skipped items are visible and can be revisited deliberately.
+- The explicit divider between confidence and tools gets slightly more spacing to avoid a doubled-border look on narrow phones.
+
+No Vault migration is required.
+
+---
+
+# DBD Base v1.0 — r3
+
+Build: `base-1.0-r3`  
+Schema label: **Schema 7 Base**  
+Numeric compatibility: **7**
+
+## r3 field-tested changes
+
+- Calculator is now a permanent Base quiz tool:
+  - always available as `🧮`;
+  - expands **inline below the quiz controls**, never in a modal;
+  - includes both `(` and `)`;
+  - shows a live grey result preview below the expression;
+  - records calculator use/open count.
+- Typed/essay submission is split approximately **80% Submit / 20% Skip**.
+- Typed answered state remains `answer | NEXT →`.
+- Confidence is one segmented switch: **Sure / Not sure / Ngasal**.
+- A divider separates confidence from the three tool icons.
+- Comment is a blue-gradient state and expands to only a textarea.
+- Flag is independent and turns red when active.
+- Wrong-answer classification now sits **immediately below the explanation and above the control rail**.
+- Only three causes are visible initially: Forgot rule, Wrong method, Careless; the rest live under `•••`.
+- Dark remains the default; Light is available in Settings and persists locally.
+- SVG renderer hardening:
+  - semantic SVG classes;
+  - theme-aware palette;
+  - known legacy DBD colors remapped to theme variables;
+  - missing text fills repaired;
+  - small label halo for readability;
+  - degree labels receive a conservative upward nudge to reduce line collisions;
+  - tighter mobile SVG height so diagrams remain stimuli rather than dominating the quiz.
+- The Base generation prompt now explicitly requires good SVG label clearance and semantic styling.
+- Subject Editor / alias merging from r2 is preserved.
+
+## Core contract
+
+`subject ChatGPT → JSON packet → DBD Base renderer → attempt evidence → history`
+
+DBD Base remains a renderer/evidence recorder, not a semantic tutor or long-term scheduler.
+
+---
 # DBD Base v1.0 — r2 polish
 
 Build ID: `base-1.0-r2`.

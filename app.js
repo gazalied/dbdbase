@@ -1,5 +1,5 @@
 const APP_VERSION='DBD Base v1.0';
-const BUILD_ID='base-1.0-r4';
+const BUILD_ID='base-1.0-r5';
 const STORAGE_KEY='dbd_gazali';
 const LARGE_PACKET_THRESHOLD=15;
 const SUBJECTS=[
@@ -6971,6 +6971,1152 @@ skipQuestion=function(){
 };
 
 /* ================= END DBD BASE v1.0 r3.1 ================= */
+
+
+/* =====================================================================
+   DBD BASE v1.0 r5 — Evidence + Portability
+   ===================================================================== */
+
+const BASE_R5_COMPACT_PREFIX='DBDC1';
+const BASE_R5_COMPACT_ALGO='GZ';
+let BASE_R5_HISTORY_MENU=null;
+
+/* DBD Compact v1 */
+
+function baseR5CompactSupported(){
+  return typeof CompressionStream!=='undefined'
+    &&typeof DecompressionStream!=='undefined'
+    &&!!globalThis.crypto?.subtle
+    &&typeof TextEncoder!=='undefined'
+    &&typeof TextDecoder!=='undefined';
+}
+
+function baseR5BytesToBase64Url(bytes){
+  let binary='';
+  const step=0x8000;
+  for(let i=0;i<bytes.length;i+=step){
+    binary+=String.fromCharCode(...bytes.subarray(i,Math.min(bytes.length,i+step)));
+  }
+  return btoa(binary).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+}
+
+function baseR5Base64UrlToBytes(text){
+  let s=String(text||'').replace(/-/g,'+').replace(/_/g,'/');
+  while(s.length%4)s+='=';
+  const binary=atob(s);
+  const out=new Uint8Array(binary.length);
+  for(let i=0;i<binary.length;i++)out[i]=binary.charCodeAt(i);
+  return out;
+}
+
+async function baseR5Sha256Hex(bytes){
+  const digest=await crypto.subtle.digest('SHA-256',bytes);
+  return [...new Uint8Array(digest)].map(x=>x.toString(16).padStart(2,'0')).join('');
+}
+
+async function baseR5Gzip(bytes){
+  const cs=new CompressionStream('gzip');
+  const stream=new Blob([bytes]).stream().pipeThrough(cs);
+  return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+
+async function baseR5Gunzip(bytes){
+  const ds=new DecompressionStream('gzip');
+  const stream=new Blob([bytes]).stream().pipeThrough(ds);
+  return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+
+async function dbdCompactEncodeObject(obj){
+  if(!baseR5CompactSupported())throw new Error('Lossless compact transport is not supported by this browser.');
+  const json=JSON.stringify(obj);
+  const raw=new TextEncoder().encode(json);
+  const checksum=await baseR5Sha256Hex(raw);
+  const compressed=await baseR5Gzip(raw);
+  return `${BASE_R5_COMPACT_PREFIX}.${BASE_R5_COMPACT_ALGO}.${checksum}.${baseR5BytesToBase64Url(compressed)}`;
+}
+
+function baseR5CleanCompactText(raw){
+  let text=String(raw||'').trim();
+  const fenced=text.match(/```(?:text|dbd|json)?\s*([\s\S]*?)```/i);
+  if(fenced)text=fenced[1].trim();
+  return text.replace(/\s+/g,'');
+}
+
+async function dbdCompactDecodeText(raw){
+  if(!baseR5CompactSupported())throw new Error('Lossless compact transport is not supported by this browser.');
+  const text=baseR5CleanCompactText(raw);
+  const parts=text.split('.');
+  if(parts.length<4||parts[0]!==BASE_R5_COMPACT_PREFIX||parts[1]!==BASE_R5_COMPACT_ALGO){
+    throw new Error('This is not a DBD Compact v1 payload.');
+  }
+  const checksum=parts[2].toLowerCase();
+  if(!/^[0-9a-f]{64}$/.test(checksum))throw new Error('The DBD Compact checksum header is invalid.');
+
+  let rawBytes;
+  try{
+    rawBytes=await baseR5Gunzip(baseR5Base64UrlToBytes(parts.slice(3).join('.')));
+  }catch(e){
+    throw new Error('Compressed payload could not be decompressed.');
+  }
+
+  const actual=await baseR5Sha256Hex(rawBytes);
+  if(actual!==checksum)throw new Error('DBD Compact integrity check failed. The copied text may be damaged.');
+
+  try{
+    return JSON.parse(new TextDecoder().decode(rawBytes));
+  }catch(e){
+    throw new Error('The payload decompressed, but the JSON inside is invalid.');
+  }
+}
+
+async function baseR5Clipboard(text){
+  try{
+    await navigator.clipboard.writeText(text);
+  }catch(e){
+    const ta=document.createElement('textarea');
+    ta.value=text;
+    ta.style.position='fixed';
+    ta.style.opacity='0';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    ta.remove();
+  }
+}
+
+async function copyCompactVault(button){
+  const old=button?.textContent||'COPY COMPRESSED';
+  try{
+    if(button){button.disabled=true;button.textContent='COMPRESSING…'}
+    const compact=await dbdCompactEncodeObject(vaultPayload());
+    await baseR5Clipboard(compact);
+    if(button){
+      button.textContent=`COPIED ${(compact.length/1024).toFixed(1)} KB ✓`;
+      setTimeout(()=>{button.textContent=old;button.disabled=false},1900);
+    }
+  }catch(e){
+    if(button){button.disabled=false;button.textContent=old}
+    alert(e.message||'Could not create the compressed Vault.');
+  }
+}
+
+async function downloadCompactVault(button){
+  const old=button?.textContent||'COMPRESSED FILE ↓';
+  try{
+    if(button){button.disabled=true;button.textContent='COMPRESSING…'}
+    const compact=await dbdCompactEncodeObject(vaultPayload());
+    download(`dbd-gazali-vault-${localDay()}.dbdc.txt`,compact,'text/plain');
+    if(button){
+      button.textContent='DOWNLOADED ✓';
+      setTimeout(()=>{button.textContent=old;button.disabled=false},1600);
+    }
+  }catch(e){
+    if(button){button.disabled=false;button.textContent=old}
+    alert(e.message||'Could not create the compressed Vault.');
+  }
+}
+
+function baseR5ReplaceVaultObject(raw){
+  const p=raw?.format==='dbd-vault'?raw.data:raw;
+  if(!p||!Array.isArray(p.completedSessions))throw new Error('This compact payload is not a valid DBD Vault.');
+  const d=emptyData(),localDevice=DATA.settings.deviceId;
+  DATA=normalizeFutureData({
+    ...d,...p,
+    appVersion:APP_VERSION,
+    setup:migrateSetup(p.setup),
+    completedSessions:p.completedSessions,
+    activeSessions:Array.isArray(p.activeSessions)?p.activeSessions:(p.activeSession?[migrateLegacyActive(p.activeSession)].filter(Boolean):[]),
+    currentActiveId:p.currentActiveId||null,
+    dailyState:p.dailyState||{},
+    subjectRegistry:Array.isArray(p.subjectRegistry)?p.subjectRegistry:[],
+    conceptManifests:Array.isArray(p.conceptManifests)?p.conceptManifests:[],
+    questionBank:Array.isArray(p.questionBank)?p.questionBank:[],
+    streamPrototype:p.streamPrototype||{attempts:[],seen:{}},
+    streamEngine:p.streamEngine||{attempts:[],questionSeen:{},recentConceptIds:[],burst:{}},
+    scheduler:p.scheduler||{burstSize:5},
+    vault:p.vault||{},
+    settings:{...d.settings,...(p.settings||{}),deviceId:localDevice}
+  });
+  recomputeStatistics(DATA);
+  save();
+}
+
+async function importCompactVault(mode='merge'){
+  const field=document.getElementById('compact-vault-input');
+  const text=field?.value||'';
+  if(!text.trim()){alert('Paste a DBD Compact Vault first.');return}
+  try{
+    const raw=await dbdCompactDecodeText(text);
+    const incoming=raw?.format==='dbd-vault'?raw.data:raw;
+    if(!incoming||!Array.isArray(incoming.completedSessions))throw new Error('This compact payload is not a DBD Vault.');
+
+    if(mode==='replace'){
+      if(!confirm('Replace this browser’s DBD data with the pasted compressed Vault?'))return;
+      baseR5ReplaceVaultObject(raw);
+      alert('Compressed Vault restored.');
+      route('home');
+      return;
+    }
+
+    const before=DATA.completedSessions.length;
+    mergeVaultData(incoming);
+    alert(`Compressed Vault merged. ${Math.max(0,DATA.completedSessions.length-before)} new completed session(s) added.`);
+    route('data');
+  }catch(e){
+    alert(e.message||'Could not import the compressed Vault.');
+  }
+}
+
+/* Package import */
+
+importView=function(){
+  return `<section class="panel base-r5-import">
+    <div class="eyebrow">Packet in</div>
+    <h1 style="font-size:2rem">Import package.</h1>
+    ${importError?`<div class="message error">${esc(importError)}</div>`:''}
+
+    <div id="dropzone" class="dropzone" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="dropFile(event)">
+      <strong>SELECT PACKAGE FILE</strong>
+      <p class="muted">JSON or DBD Compact text. Everything is read locally.</p>
+      <input id="json-file" type="file" accept=".json,.txt,.dbdc,.dbd,application/json,text/plain" onchange="fileChosen(event)" style="display:none">
+      <button class="button primary" onclick="document.getElementById('json-file').click()">CHOOSE FILE</button>
+      <div class="file-meta" id="file-meta"></div>
+    </div>
+
+    <div class="base-r5-paste-grid">
+      <details class="import-paste">
+        <summary>Paste JSON instead</summary>
+        <div>
+          <textarea id="packet-input" class="code-input" placeholder="Paste ordinary DBD Base JSON here."></textarea>
+          <button class="button primary block" onclick="readPastedPacket()">REVIEW PACKET</button>
+        </div>
+      </details>
+
+      <details class="import-paste">
+        <summary>Paste compressed JSON instead</summary>
+        <div>
+          <textarea id="compact-packet-input" class="code-input" placeholder="Paste DBDC1.GZ.… here."></textarea>
+          <button class="button primary block" onclick="readPastedCompactPacket(this)">DECOMPRESS & REVIEW</button>
+        </div>
+      </details>
+    </div>
+
+    <div class="actions"><button class="button" onclick="route('home')">CANCEL</button></div>
+  </section>`;
+};
+
+readPacketFile=async function(file){
+  try{
+    const meta=document.getElementById('file-meta');
+    if(meta)meta.textContent=`${file.name} · ${Math.round(file.size/1024)} KB`;
+    const text=await file.text();
+    if(baseR5CleanCompactText(text).startsWith(`${BASE_R5_COMPACT_PREFIX}.${BASE_R5_COMPACT_ALGO}.`)){
+      preparePacket(JSON.stringify(await dbdCompactDecodeText(text)),file.name);
+    }else{
+      preparePacket(text,file.name);
+    }
+  }catch(e){
+    importError=e.message||'Could not read file.';
+    render();
+  }
+};
+
+async function readPastedCompactPacket(button){
+  const field=document.getElementById('compact-packet-input');
+  const raw=field?.value||'';
+  if(!raw.trim()){importError='Paste a compressed DBD payload first.';render();return}
+  const old=button?.textContent||'DECOMPRESS & REVIEW';
+  try{
+    if(button){button.disabled=true;button.textContent='DECOMPRESSING…'}
+    const obj=await dbdCompactDecodeText(raw);
+    if(obj?.format==='dbd-vault')throw new Error('This is a Vault, not a drill packet.');
+    preparePacket(JSON.stringify(obj),'Pasted compressed JSON');
+  }catch(e){
+    importError=e.message||'Could not decode compressed JSON.';
+    if(button){button.disabled=false;button.textContent=old}
+    render();
+  }
+}
+
+/* Native table stimulus */
+
+const BASE_R5_NORMALIZE_STIMULUS_PREV=normalizeStimulus;
+normalizeStimulus=function(s){
+  if(!s)return null;
+  if(typeof s==='object'&&String(s.type||'').toLowerCase()==='table'){
+    return{
+      type:'table',
+      title:String(s.title||''),
+      columns:Array.isArray(s.columns)?s.columns.map(x=>String(x??'')):[],
+      rows:Array.isArray(s.rows)?s.rows.filter(Array.isArray).map(row=>row.map(x=>String(x??''))):[],
+      source:String(s.source||''),
+      caption:String(s.caption||s.note||'')
+    };
+  }
+  return BASE_R5_NORMALIZE_STIMULUS_PREV(s);
+};
+
+const BASE_R5_STIMULUS_HTML_PREV=stimulusHTML;
+stimulusHTML=function(s){
+  if(!s)return'';
+  if(s.type==='table'){
+    const colCount=Math.max(s.columns?.length||0,...(s.rows||[]).map(r=>r.length),1);
+    const headers=(s.columns||[]).length
+      ?`<thead><tr>${Array.from({length:colCount},(_,i)=>`<th>${esc(s.columns[i]??'')}</th>`).join('')}</tr></thead>`
+      :'';
+    const body=`<tbody>${(s.rows||[]).map(row=>`<tr>${Array.from({length:colCount},(_,i)=>`<td>${esc(row[i]??'')}</td>`).join('')}</tr>`).join('')}</tbody>`;
+    return `<div class="stimulus table">
+      ${s.title?`<div class="stimulus-title">${esc(s.title)}</div>`:''}
+      <div class="stimulus-table-wrap"><table>${headers}${body}</table></div>
+      ${s.caption?`<div class="stimulus-caption">${esc(s.caption)}</div>`:''}
+      ${s.source?`<div class="stimulus-source">— ${esc(s.source)}</div>`:''}
+    </div>`;
+  }
+  return BASE_R5_STIMULUS_HTML_PREV(s);
+};
+
+/* Packet metadata + minimal preflight */
+
+const BASE_R5_NORMALIZE_PACKET_PREV=normalizePacket;
+normalizePacket=function(parsed){
+  const out=BASE_R5_NORMALIZE_PACKET_PREV(parsed);
+  const raw=Array.isArray(parsed)?{}:(parsed||{});
+  const fb=String(raw.feedback||raw.feedback_mode||'').toLowerCase();
+  out.feedback=['immediate','end'].includes(fb)?fb:null;
+
+  const tr=String(raw.timing||raw.timing_mode||'').toLowerCase().replace(/\s+/g,'_');
+  const timingMap={off:'off',record:'record',record_only:'record','record-only':'record',ai:'ai',ai_set:'ai','ai-set':'ai'};
+  out.timing=timingMap[tr]||null;
+  out.showTimer=raw.show_timer===true||raw.showTimer===true;
+  return out;
+};
+
+const BASE_R5_SYNC_SETUP_PREV=syncSetupFromPacket;
+syncSetupFromPacket=function(p){
+  BASE_R5_SYNC_SETUP_PREV(p);
+  if(p.feedback)DATA.setup.feedback=p.feedback;
+  if(p.timing)DATA.setup.timing=p.timing;
+  else DATA.setup.timing=(p.questions||[]).some(q=>q.timeLimitSeconds>0)?'ai':'off';
+  DATA.setup.showTimer=Boolean(p.showTimer);
+};
+
+validatePacket=function(p){
+  const errors=[],warnings=[],ids=new Set();
+  let mcq=0,typed=0,totalLimit=0,limits=[];
+
+  p.questions.forEach((q,i)=>{
+    const n=i+1;
+    if(!q.prompt.trim())errors.push(`Question ${n} has no prompt.`);
+    if(ids.has(q.id))warnings.push(`Duplicate question ID: ${q.id}.`);
+    ids.add(q.id);
+
+    if(isMCQ(q)){
+      mcq++;
+      const keys=Object.keys(q.choices);
+      if(keys.length<2)errors.push(`Question ${n} has fewer than two choices.`);
+      if(!keys.some(k=>norm(k)===norm(q.answer)))errors.push(`Question ${n} has an answer that does not match any choice.`);
+      if(new Set(keys.map(k=>norm(q.choices[k]))).size!==keys.length)warnings.push(`Question ${n} contains duplicate answer choices.`);
+    }else{
+      typed++;
+      if(!['short','numeric','self_check','essay'].includes(q.type))errors.push(`Question ${n} uses unsupported type “${q.type}”.`);
+      if(q.type==='essay'){
+        if(!q.modelAnswer)errors.push(`Essay question ${n} has no model_answer.`);
+        if(!q.rubric.length)warnings.push(`Essay question ${n} has no rubric.`);
+      }else if(!q.answer&&!q.acceptedAnswers.length){
+        errors.push(`Question ${n} has no expected answer.`);
+      }
+    }
+
+    if(!q.explanation&&q.type!=='essay')warnings.push(`Question ${n} has no explanation.`);
+    if(!q.tags.length)warnings.push(`Question ${n} has no skill tags.`);
+
+    if(q.stimulus?.type==='table'){
+      if(!(q.stimulus.rows||[]).length)warnings.push(`Question ${n} has an empty table stimulus.`);
+      const widths=(q.stimulus.rows||[]).map(r=>r.length);
+      if(widths.length&&new Set(widths).size>1)warnings.push(`Question ${n} has table rows with different column counts.`);
+    }
+
+    if(DATA.setup.timing==='ai'){
+      if(!(q.timeLimitSeconds>0))errors.push(`Question ${n} has no positive AI-set time limit.`);
+      else{totalLimit+=q.timeLimitSeconds;limits.push(q.timeLimitSeconds)}
+    }
+  });
+
+  return{errors,warnings,mcq,typed,totalLimit,limits};
+};
+
+function baseR5ToggleShowTimer(checked){
+  DATA.setup.showTimer=Boolean(checked);
+  if(DATA.setup.showTimer&&DATA.setup.timing==='off')DATA.setup.timing='record';
+  save();
+  render();
+}
+
+preflightSettings=function(){
+  const x=DATA.setup,p=DATA.pendingPacket?.packet;
+  if(!p)return'';
+  return `<details class="preflight-settings">
+    <summary>Launch settings</summary>
+    <div class="preflight-settings-body base-r5-minimal-launch">
+      <div class="preflight-settings-grid">
+        <div class="field">
+          <label>Feedback</label>
+          <select onchange="updatePreflightSetup('feedback',this.value)">
+            ${FEEDBACKS.map(([id,l])=>`<option value="${id}" ${x.feedback===id?'selected':''}>${esc(l)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field base-r5-toggle-field">
+          <label>Show timer</label>
+          <label class="base-r5-switch">
+            <input type="checkbox" ${x.showTimer?'checked':''} onchange="baseR5ToggleShowTimer(this.checked)">
+            <span></span><b>${x.showTimer?'Shown':'Hidden'}</b>
+          </label>
+        </div>
+      </div>
+      <div class="field" style="margin-top:11px">
+        <label>Additional focus for the next generation request</label>
+        <textarea oninput="updatePreflightFocus(this.value)" placeholder="Optional — this does not rewrite the current packet.">${esc(x.focus)}</textarea>
+      </div>
+    </div>
+  </details>`;
+};
+
+preflight=function(){
+  const pp=DATA.pendingPacket;
+  if(!pp)return `<div class="empty">No packet is waiting.</div>`;
+  const v=pp.validation,p=pp.packet;
+
+  return `<div class="preflight-backdrop"><div class="preflight-card">
+    <div class="preflight-kicker">Mission briefing</div>
+    <div class="preflight-title"><h1>READY TO<br>LAUNCH</h1><p class="muted">${esc(pp.sourceName)}</p></div>
+    <div class="manifest">
+      <div class="manifest-item"><span>Subject</span><strong>${esc(p.subject)}</strong></div>
+      <div class="manifest-item"><span>Topic</span><strong>${esc(p.topic||'Unspecified')}</strong></div>
+      <div class="manifest-item"><span>Questions</span><strong>${p.questions.length}</strong></div>
+      <div class="manifest-item"><span>Composition</span><strong>${v.mcq} MCQ · ${v.typed} typed</strong></div>
+    </div>
+    ${preflightSettings()}
+    ${v.errors.length?`<h3>Blocking errors</h3><ul class="check-list error">${v.errors.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:''}
+    ${v.warnings.length?`<details class="validation-details"><summary>Warnings (${v.warnings.length})</summary><div><ul class="check-list warning">${v.warnings.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div></details>`:''}
+    <details class="validation-details">
+      <summary>Validation details</summary>
+      <div><ul class="check-list ok">
+        <li>Packet structure is launchable.</li>
+        <li>Answer references and supported question surfaces were checked.</li>
+        <li>Structured table / SVG stimuli are validated by the Base renderer.</li>
+        ${DATA.setup.timing==='ai'?`<li>${v.limits.length?`AI timing covers ${v.limits.length} questions, estimated ${fmt(v.totalLimit)} total.`:'AI timing has not been supplied.'}</li>`:''}
+      </ul></div>
+    </details>
+    <div class="preflight-actions">
+      <button class="button primary" ${v.errors.length?'disabled':''} onclick="launchPacket()">START DRILL</button>
+      <button class="button ghost" onclick="cancelPending()">CANCEL</button>
+    </div>
+  </div></div>`;
+};
+
+/* Calculator evidence */
+
+const BASE_R5_NEW_RESPONSE_PREV=newResponse;
+newResponse=function(){return{...BASE_R5_NEW_RESPONSE_PREV(),calculatorHistory:[]}};
+
+function baseR5EnsureCalcHistory(r){
+  if(!r)return[];
+  if(!Array.isArray(r.calculatorHistory))r.calculatorHistory=[];
+  return r.calculatorHistory;
+}
+
+function baseR5RecordCalcSnapshot(reason='preview'){
+  const r=currentResponse();
+  if(!r||!r.calculatorUsed)return;
+  const expression=String(BASE_R3_CALC_EXPR||'').trim();
+  if(!expression||expression==='Error')return;
+  const result=baseR3EvalCalc();
+  if(result===null)return;
+  const history=baseR5EnsureCalcHistory(r);
+  const cleanResult=String(result);
+  const last=history[history.length-1];
+  if(last&&last.expression===expression&&String(last.result)===cleanResult)return;
+  history.push({expression,result:cleanResult,reason,at:new Date().toISOString()});
+  save();
+}
+
+baseR3ToggleCalc=function(){
+  if(BASE_R3_CALC_OPEN)baseR5RecordCalcSnapshot('close');
+  BASE_R3_CALC_OPEN=!BASE_R3_CALC_OPEN;
+  if(BASE_R3_CALC_OPEN){
+    const r=currentResponse();
+    if(r){
+      r.calculatorUsed=true;
+      r.calculatorOpenCount=Number(r.calculatorOpenCount||0)+1;
+      baseR5EnsureCalcHistory(r);
+      save();
+    }
+  }
+  render();
+};
+
+baseR3CalcPress=function(v){
+  if(v==='AC'){
+    BASE_R3_CALC_EXPR='';
+  }else if(v==='⌫'){
+    BASE_R3_CALC_EXPR=BASE_R3_CALC_EXPR.slice(0,-1);
+  }else if(v==='='){
+    const expression=String(BASE_R3_CALC_EXPR||'').trim();
+    const n=baseR3EvalCalc();
+
+    if(expression&&n!==null){
+      const r=currentResponse();
+      if(r){
+        r.calculatorUsed=true;
+        const history=baseR5EnsureCalcHistory(r);
+        const result=String(n);
+        const last=history[history.length-1];
+        if(!(last&&last.expression===expression&&String(last.result)===result)){
+          history.push({expression,result,reason:'equals',at:new Date().toISOString()});
+        }
+        save();
+      }
+    }
+
+    BASE_R3_CALC_EXPR=n===null?'Error':String(n);
+  }else{
+    if(BASE_R3_CALC_EXPR==='Error')BASE_R3_CALC_EXPR='';
+    BASE_R3_CALC_EXPR+=String(v);
+  }
+  render();
+};
+
+const BASE_R5_SUBMIT_PREV=submitAnswer;
+submitAnswer=function(){baseR5RecordCalcSnapshot('submit');return BASE_R5_SUBMIT_PREV()};
+
+const BASE_R5_SKIP_PREV=skipQuestion;
+skipQuestion=function(){baseR5RecordCalcSnapshot('skip');return BASE_R5_SKIP_PREV()};
+
+const BASE_R5_ATTEMPT_PREV=attemptFrom;
+attemptFrom=function(q,r){
+  const out=BASE_R5_ATTEMPT_PREV(q,r);
+  out.calculatorHistory=Array.isArray(r.calculatorHistory)?r.calculatorHistory.map(x=>({...x})):[];
+  return out;
+};
+
+function baseR5CalcHistoryText(a){
+  const h=Array.isArray(a?.calculatorHistory)?a.calculatorHistory:[];
+  if(!h.length)return a?.calculatorUsed?'used; no completed expression/result snapshots':'not used';
+  return h.map((x,i)=>`${i+1}. ${x.expression} = ${x.result}`).join('\n');
+}
+
+liteResultsText=function(s){
+  const c=confidenceStats(s),errs=errorStats(s),total=s.totalQuestions||s.answered||0;
+
+  return `# DBD Base Results
+
+**Subject:** ${s.subject}
+**Topic:** ${s.topic||'—'}
+**Source:** ${s.source||'—'}
+**Drill type:** ${sessionTestType(s)}
+**Difficulty:** ${s.difficulty||'—'}
+**Questions:** ${total}
+**Correct:** ${s.correct}
+**Accuracy:** ${Math.round(s.accuracy||0)}%
+**Skipped / unanswered:** ${s.unanswered??c.unanswered}
+${s.totalTime===null?'':`**Active time:** ${fmt(s.totalTime)}`}
+
+## Confidence
+- Sure + correct: ${c.sureCorrect}
+- Not sure + correct: ${c.unsureCorrect}
+- Ngasal + correct: ${c.guessCorrect}
+- Incorrect: ${c.incorrect}
+- Skipped / unanswered: ${c.unanswered}
+
+## Error causes recorded
+${errs.length?errs.map(([e,n])=>`- ${errorLabel(e)}: ${n}`).join('\n'):'- none'}
+
+## Questions
+
+${(s.attempts||[]).map((a,i)=>`### Q${i+1}
+${a.prompt}
+
+- **Your answer:** ${a.selected||'—'}
+- **Correct / reference answer:** ${a.answer||'—'}
+- **Result:** ${a.correct?'Correct':['skipped','unseen'].includes(a.status)?'Skipped / unanswered':a.timedOut?'Timed out':'Wrong'}
+- **Confidence:** ${a.confidence||'—'}
+- **Error cause:** ${a.errorType&&a.errorType!=='unclassified'?errorLabel(a.errorType):'—'}
+- **Calculator used:** ${a.calculatorUsed?'Yes':'No'}
+${a.calculatorUsed?`- **Calculator history:**\n${baseR5CalcHistoryText(a).split('\n').map(line=>`  ${line}`).join('\n')}`:''}
+- **Tags:** ${a.tags?.join(', ')||'—'}
+- **Comment:** ${a.comment||'—'}
+- **Explanation:** ${a.explanation||'—'}`).join('\n\n')}`;
+};
+
+fullQuizText=function(s){
+  return (s.attempts||[]).map((a,i)=>`QUESTION ${i+1}
+${a.prompt}
+
+Your answer: ${a.selected||'—'}
+Correct answer: ${a.answer||'—'}
+Result: ${a.correct?'Correct':a.status==='dontknow'?"Don't know":['skipped','unseen'].includes(a.status)?'Unanswered':'Wrong'}
+Confidence: ${a.confidence||'—'}
+Explanation: ${a.explanation||'—'}
+Error type: ${errorLabel(a.errorType)}
+Calculator used: ${a.calculatorUsed?'Yes':'No'}
+Calculator history:
+${baseR5CalcHistoryText(a)}
+Time: ${s.timing==='off'?'Not recorded':fmt(a.elapsed)}
+Tags: ${a.tags?.join(', ')||'—'}
+Note: ${a.note||'—'}
+Comment: ${a.comment||'—'}
+`).join('\n------------------------------\n\n');
+};
+
+/* Subject + History portability */
+
+function baseR5SubjectHistoryPayload(rec){
+  const summary=baseSubjectSummaryRec(rec);
+  return{
+    format:'dbd-base-subject-history',
+    version:1,
+    dbd_version:'DBD Base v1.0',
+    build:BUILD_ID,
+    schema:7,
+    exported_at:new Date().toISOString(),
+    subject:{
+      id:rec.id,
+      name:rec.name,
+      aliases:baseSubjectAliases(rec).filter(a=>aliasNorm(a)!==aliasNorm(rec.name))
+    },
+    sessions:summary.sessions.slice().sort((a,b)=>new Date(a.completedAt)-new Date(b.completedAt))
+  };
+}
+
+function downloadSubjectHistory(id){
+  const rec=(DATA.subjectRegistry||[]).find(s=>s.id===id);
+  if(!rec){alert('Subject not found.');return}
+  download(`dbd-base-${slug(rec.name)}-history-${localDay()}.json`,JSON.stringify(baseR5SubjectHistoryPayload(rec),null,2),'application/json');
+}
+
+function downloadSessionHistory(id){
+  const s=getSession(id);
+  if(!s)return;
+  download(
+    `dbd-base-${slug(s.subject)}-${slug(s.topic||'session')}-${localDay()}.json`,
+    JSON.stringify({
+      format:'dbd-base-session-history',
+      version:1,
+      dbd_version:'DBD Base v1.0',
+      build:BUILD_ID,
+      schema:7,
+      exported_at:new Date().toISOString(),
+      session:s
+    },null,2),
+    'application/json'
+  );
+}
+
+function deleteCompletedSession(id){
+  const s=getSession(id);
+  if(!s)return;
+  if(!confirm(`Delete this completed session?\n\n${s.subject} · ${s.topic||'Drill'}\n\nThis permanently removes its recorded answers from this browser.`))return;
+  DATA.completedSessions=(DATA.completedSessions||[]).filter(x=>x.id!==id);
+  if(currentSessionId===id)currentSessionId=null;
+  recomputeStatistics(DATA);
+  save();
+  BASE_R5_HISTORY_MENU=null;
+  render();
+}
+
+function baseR5DeleteSubject(id){
+  const rec=(DATA.subjectRegistry||[]).find(s=>s.id===id);
+  if(!rec)return;
+  const x=baseSubjectSummaryRec(rec);
+  const bank=(DATA.questionBank||[]).filter(q=>q.subjectId===rec.id||baseSubjectMatches(rec,q.subjectName||q.subject)).length;
+  const legacyAttempts=(DATA.streamEngine?.attempts||[]).filter(a=>a.subjectId===rec.id||baseSubjectMatches(rec,a.subjectName||a.subject)).length;
+
+  const msg=`Delete ${rec.name}?
+
+This permanently removes:
+• ${x.sessions.length} completed session(s)
+• ${x.active.length} ongoing session(s)
+• ${x.pending?1:0} pending packet
+• ${bank} stored subject question record(s)
+• ${legacyAttempts} subject Stream evidence record(s)
+
+Aliases for this subject will also be removed.`;
+
+  if(!confirm(msg))return;
+
+  DATA.completedSessions=(DATA.completedSessions||[]).filter(s=>!baseSubjectMatches(rec,s.subject));
+  DATA.activeSessions=(DATA.activeSessions||[]).filter(a=>!baseSubjectMatches(rec,a.packet?.subject));
+  if(DATA.pendingPacket?.packet&&baseSubjectMatches(rec,DATA.pendingPacket.packet.subject))DATA.pendingPacket=null;
+
+  DATA.questionBank=(DATA.questionBank||[]).filter(q=>!(q.subjectId===rec.id||baseSubjectMatches(rec,q.subjectName||q.subject)));
+  DATA.bankCollections=(DATA.bankCollections||[]).filter(c=>c.subjectId!==rec.id);
+  DATA.conceptManifests=(DATA.conceptManifests||[]).filter(m=>m.subjectId!==rec.id);
+  if(Array.isArray(DATA.subjectManifests))DATA.subjectManifests=DATA.subjectManifests.filter(m=>m.subjectId!==rec.id);
+  if(DATA.streamEngine?.attempts)DATA.streamEngine.attempts=DATA.streamEngine.attempts.filter(a=>!(a.subjectId===rec.id||baseSubjectMatches(rec,a.subjectName||a.subject)));
+  if(DATA.streamPrototype?.attempts)DATA.streamPrototype.attempts=DATA.streamPrototype.attempts.filter(a=>!baseSubjectMatches(rec,a.subject));
+
+  DATA.subjectRegistry=(DATA.subjectRegistry||[]).filter(s=>s.id!==rec.id);
+  DATA.streams=(DATA.streams||[]).filter(s=>s.id!==rec.id);
+
+  if(DATA.currentActiveId&&!DATA.activeSessions.some(a=>a.id===DATA.currentActiveId))DATA.currentActiveId=DATA.activeSessions[0]?.id||null;
+  selectedSubjectId=null;
+  recomputeStatistics(DATA);
+  save();
+  alert(`${rec.name} and its Base history were deleted.`);
+  render();
+}
+
+subjectsView=function(){
+  const selected=baseSelectedSubject(),records=baseSubjectRecords();
+
+  if(selected){
+    const x=baseSubjectSummaryRec(selected);
+    const aliases=baseSubjectAliases(selected).filter(a=>aliasNorm(a)!==aliasNorm(selected.name));
+    const recent=x.sessions.slice().sort((a,b)=>new Date(b.completedAt)-new Date(a.completedAt)).slice(0,8);
+
+    return `<section class="dev2-page">
+      <button class="back-link" onclick="baseCloseSubject()">← Subjects</button>
+      <div class="lite-home-hero base-subject-hero">
+        <div class="eyebrow">Subject record</div>
+        <h1>${esc(selected.name)}</h1>
+        ${aliases.length?`<div class="base-alias-line"><span>ALIASES</span>${aliases.map(a=>`<code>${esc(a)}</code>`).join('')}</div>`:''}
+        <p>${x.sessions.length} completed drills · ${x.answered} historical answers${x.active.length?` · ${x.active.length} ongoing`:''}${x.pending?' · packet waiting':''}.</p>
+
+        <div class="lite-subject-actions base-r5-subject-export">
+          <button class="button primary" onclick="downloadSubjectHistory('${selected.id}')">DOWNLOAD SUBJECT HISTORY</button>
+        </div>
+
+        <div class="base-subject-edit-actions">
+          <button class="button tiny" onclick="baseRenameSubject('${selected.id}')">RENAME</button>
+          <button class="button tiny" onclick="baseAddAlias('${selected.id}')">ADD ALIAS</button>
+          <button class="button tiny danger" onclick="baseR5DeleteSubject('${selected.id}')">DELETE SUBJECT</button>
+        </div>
+      </div>
+
+      <div class="lite-recent">
+        ${recent.length?recent.map(s=>`<button class="lite-recent-row base-r5-session-row" onclick="viewSession('${s.id}')"><div><strong>${esc(s.topic||'Drill')}</strong><small>${esc(s.subject)} · ${esc(sessionTestType(s))} · ${dev2HumanDate(s.completedAt)}</small></div><strong>${s.correct||0}/${s.totalQuestions||s.answered||0}</strong></button>`).join(''):`<div class="lite-recent-row"><div><strong>No completed drills yet</strong><small>This subject currently has no completed Base history.</small></div></div>`}
+      </div>
+    </section>`;
+  }
+
+  return `<section class="dev2-page base-subjects-page">
+    <div class="dev2-page-head">
+      <div><div class="eyebrow">Canonical lanes</div><h1>Subjects</h1><p>Subjects are records: inspect, export, rename, merge, or delete them here.</p></div>
+      <button class="button tiny" onclick="BASE_SUBJECT_EDITOR_OPEN=!BASE_SUBJECT_EDITOR_OPEN;render()">${BASE_SUBJECT_EDITOR_OPEN?'CLOSE EDITOR':'EDIT SUBJECTS'}</button>
+    </div>
+    ${baseSubjectEditorHtml(records)}
+    <div class="lite-subject-list">
+      ${records.map(rec=>{
+        const x=baseSubjectSummaryRec(rec);
+        const aliases=baseSubjectAliases(rec).filter(a=>aliasNorm(a)!==aliasNorm(rec.name));
+
+        return `<button class="lite-subject-card base-subject-card" onclick="baseOpenSubject('${rec.id}')">
+          <div>
+            <h3>${esc(rec.name)}</h3>
+            <p>${x.sessions.length} completed drills · ${x.answered} answers${x.active.length?` · ${x.active.length} ongoing`:''}</p>
+            ${aliases.length?`<div class="base-card-aliases">${aliases.slice(0,4).map(a=>`<code>${esc(a)}</code>`).join('')}${aliases.length>4?`<span>+${aliases.length-4}</span>`:''}</div>`:''}
+          </div>
+          <div class="right"><strong>${x.sessions.length}</strong><small>DRILLS</small></div>
+        </button>`;
+      }).join('')||'<div class="empty">No subjects yet. Import your first packet from Home.</div>'}
+    </div>
+  </section>`;
+};
+
+function baseR5ToggleHistoryMenu(id,event){
+  event?.stopPropagation();
+  BASE_R5_HISTORY_MENU=BASE_R5_HISTORY_MENU===id?null:id;
+  render();
+}
+
+history=function(){
+  const sessions=(DATA.completedSessions||[]).slice().sort((a,b)=>new Date(b.completedAt)-new Date(a.completedAt));
+  const legacyBursts=burstEventsDev2();
+  const events=[
+    ...sessions.map(s=>({type:'session',at:s.completedAt,s})),
+    ...legacyBursts.map(b=>({type:'legacy',at:b.completedAt,b}))
+  ].sort((a,b)=>new Date(b.at)-new Date(a.at));
+
+  let last='',body='';
+  for(const e of events){
+    const day=historyDateLabel(e.at);
+    if(day!==last){body+=`<div class="dev2-history-date">${esc(day)}</div>`;last=day}
+
+    if(e.type==='session'){
+      const s=e.s,total=s.totalQuestions||s.answered||0,open=BASE_R5_HISTORY_MENU===s.id;
+      body+=`<div class="dev2-section base-r5-history-section" style="margin-top:6px">
+        <div class="dev2-history-row session base-r5-history-main" onclick="viewSession('${s.id}')">
+          <div><strong>${esc(s.subject)} · ${esc(s.topic||'Drill')}</strong><small>${esc(sessionTestType(s))} · ${fmt(s.totalTime)}</small></div>
+          <div class="base-r5-history-side">
+            <div class="dev2-history-score"><strong>${s.correct||0}/${total}</strong><small>DRILL</small></div>
+            <button class="base-r5-more" onclick="baseR5ToggleHistoryMenu('${s.id}',event)" aria-label="Session actions">•••</button>
+          </div>
+        </div>
+        ${open?`<div class="base-r5-history-menu">
+          <button onclick="viewSession('${s.id}')">OPEN</button>
+          <button onclick="downloadSessionHistory('${s.id}')">EXPORT JSON</button>
+          <button class="danger" onclick="deleteCompletedSession('${s.id}')">DELETE</button>
+        </div>`:''}
+      </div>`;
+    }else{
+      const b=e.b;
+      body+=`<div class="dev2-section" style="margin-top:6px">
+        <div class="dev2-history-row">
+          <div><strong>${esc(b.subject)} · Legacy Stream</strong><small>${b.count} retrievals · preserved experimental history</small></div>
+          <div class="dev2-history-score"><strong>${b.correct}/${b.count}</strong><small>LEGACY</small></div>
+        </div>
+      </div>`;
+    }
+  }
+
+  return `<section class="dev2-page">
+    <div class="dev2-page-head"><div><div class="eyebrow">Recorded work</div><h1>History</h1><p>Completed packet drills stay here. Base records evidence; semantic interpretation belongs upstream.</p></div></div>
+    ${body||'<div class="empty">No completed drills yet.</div>'}
+  </section>`;
+};
+
+/* Settings */
+
+dataView=function(){
+  const bytes=new Blob([JSON.stringify(DATA)]).size;
+  const size=bytes<1048576?`${(bytes/1024).toFixed(1)} KB`:`${(bytes/1048576).toFixed(2)} MB`;
+  const legacyBank=(DATA.questionBank||[]).length;
+  const legacyAttempts=(DATA.streamEngine?.attempts||[]).length;
+  const records=baseSubjectRecords();
+  const aliasCount=records.reduce((n,r)=>n+baseSubjectAliases(r).filter(a=>aliasNorm(a)!==aliasNorm(r.name)).length,0);
+
+  return `<section class="dev2-page">
+    <div class="dev2-page-head"><div><div class="eyebrow">DBD Base v1.0 · ${BUILD_ID}</div><h1>Settings</h1><p>${BASE_SCHEMA_LABEL}. Numeric compatibility remains Schema 7.</p></div></div>
+
+    <div class="settings-group">
+      <div class="settings-title">Appearance</div>
+      <p class="note">Dark is the default. Light uses the technical-paper palette.</p>
+      ${baseR3AppearanceControl()}
+    </div>
+
+    <div class="settings-group">
+      <div class="settings-title">Base model</div>
+      <div class="metric-row"><span>Product</span><strong>DBD Base v1.0</strong></div>
+      <div class="metric-row"><span>Build</span><strong>${BUILD_ID}</strong></div>
+      <div class="metric-row"><span>Data schema</span><strong>${BASE_SCHEMA_LABEL}</strong></div>
+      <div class="metric-row"><span>Runtime</span><strong>JSON packet → render → drill → history</strong></div>
+      <div class="metric-row"><span>Canonical subjects</span><strong>${records.length}</strong></div>
+      <div class="metric-row"><span>Subject aliases</span><strong>${aliasCount}</strong></div>
+    </div>
+
+    <div class="settings-group">
+      <div class="settings-title">Renderer capabilities</div>
+      <div class="metric-row"><span>Question surfaces</span><strong>MCQ · numeric · short · essay</strong></div>
+      <div class="metric-row"><span>Structured stimuli</span><strong>text · table · sanitized SVG</strong></div>
+      <div class="metric-row"><span>Built-in tools</span><strong>calculator history · comments · flag · flexible answer match</strong></div>
+    </div>
+
+    <div class="settings-group">
+      <div class="settings-title">DBD Vault</div>
+      <p class="note">Ordinary JSON remains the canonical backup. DBD Compact is a lossless transport copy for messaging or clipboard transfer.</p>
+      <div class="data-actions base-r5-vault-actions">
+        <button class="button primary" onclick="exportVault()">EXPORT VAULT</button>
+        <button class="button" onclick="copyCompactVault(this)">COPY COMPRESSED</button>
+        <button class="button tiny" onclick="downloadCompactVault(this)">COMPRESSED FILE ↓</button>
+        <button class="button" onclick="mergeVault()">MERGE VAULT</button>
+      </div>
+
+      <details class="validation-details base-r5-compact-vault" style="margin-top:10px">
+        <summary>Paste compressed Vault</summary>
+        <div>
+          <textarea id="compact-vault-input" class="code-input" placeholder="Paste DBDC1.GZ.… here."></textarea>
+          <div class="actions">
+            <button class="button primary" onclick="importCompactVault('merge')">MERGE COMPRESSED</button>
+            <button class="button danger" onclick="importCompactVault('replace')">REPLACE WITH COMPRESSED</button>
+          </div>
+        </div>
+      </details>
+
+      <details class="validation-details" style="margin-top:10px">
+        <summary>Replacement restore</summary>
+        <div><button class="button small" onclick="importBackup()">REPLACE FROM JSON BACKUP</button></div>
+      </details>
+    </div>
+
+    <div class="settings-group">
+      <div class="settings-title">Preserved experimental data</div>
+      <div class="lite-legacy-note"><strong>${legacyBank} old Question Bank records</strong> and <strong>${legacyAttempts} experimental Stream attempts</strong> remain in the Vault for compatibility/history. Base does not schedule them.</div>
+    </div>
+
+    <div class="settings-group">
+      <div class="settings-title">Storage</div>
+      <div class="metric-row"><span>Approx. local data</span><strong>${size}</strong></div>
+    </div>
+  </section>`;
+};
+
+/* Detailed Copy Prompt */
+
+litePrompt=function(subjectName=''){
+  const subjectLine=subjectName?`Target subject: ${subjectName}`:'Target subject: use the subject of this chat.';
+  const inheritedFocus=String(DATA?.setup?.focus||'').trim();
+
+  return `# DBD Base v1.0 — build me a drill packet
+
+DBD Base is the execution layer of my learning system. You, the subject chat, are the semantic layer.
+
+Your job is to understand the actual material in this chat, decide what is worth testing, build a coherent drill, and package it for DBD Base. Base will render the questions, run the drill, record my answers, confidence, comments, flags, timing and calculator trail, and return factual evidence. Base does not decide what I should study and it does not diagnose the meaning of my mistakes.
+
+${subjectLine}
+${inheritedFocus?`A focus note saved from my last launch is: ${inheritedFocus}`:''}
+
+## Before you generate
+
+Use the real context available in THIS subject chat: uploaded files, class notes, textbook pages, teacher scope, previous explanations, mistakes, and current assessment context. Do not silently replace that context with a generic curriculum.
+
+Do not output the packet immediately.
+
+First ask me ONE compact setup question. Keep it natural, not a form. Resolve only what is actually useful:
+- what material or scope I want to drill;
+- roughly what kind of practice I need right now, such as broad coverage, focused repair, deep practice, mastery checking, or exam-like work;
+- how many questions;
+- whether I want immediate feedback or feedback after the session;
+- whether I want a visible timer;
+- any extra focus or constraint.
+
+Recommend sensible defaults from the evidence in this chat. Infer answer format, difficulty mix, working style, and question construction yourself instead of making me configure backend variables.
+
+Then wait for my answer.
+
+## Core question doctrine
+
+Every question consumes attention. Do not fill a quota.
+
+Build a question because it tests something that matters:
+- a concept or condition I must retrieve;
+- a procedure I must be able to execute;
+- a misconception or trap I am likely to fall into;
+- a relationship I must recognize;
+- a choice of method;
+- interpretation of information;
+- transfer to a slightly different situation;
+- exam-relevant reasoning.
+
+Avoid decorative wording, trivial numerical skins, repeated versions of one operation, fake breadth, and ambiguity. A short question can be difficult when the idea is difficult. A long question is not automatically deep.
+
+Across the whole packet, deliberately vary the cognitive demand. Do not let the easiest question template dominate simply because it is easy to generate.
+
+## Representation doctrine
+
+For every question, decide how the information should be represented BEFORE deciding how to word it.
+
+Use the simplest representation that makes the relevant structure easy to perceive.
+
+### Plain text
+
+Use ordinary text when prose, equations, or symbols alone are genuinely the clearest representation.
+
+### Native table stimulus
+
+Use a table when comparison, alignment, repeated variables, datasets, givens, reaction sets, or row/column structure is the information.
+
+Good uses:
+- Hess-law reaction sets with reaction and ΔH columns;
+- calorimetry givens;
+- physics datasets;
+- function/value tables;
+- SAT data interpretation.
+
+Example:
+
+{
+  "stimulus": {
+    "type": "table",
+    "title": "Data reaksi",
+    "columns": ["Reaksi", "ΔH"],
+    "rows": [
+      ["C(s) + O₂(g) → CO₂(g)", "−400 kJ"],
+      ["2H₂(g) + O₂(g) → 2H₂O(l)", "−600 kJ"]
+    ],
+    "source": ""
+  }
+}
+
+Do not draw a fake table in SVG when a real table is more appropriate.
+
+### SVG stimulus
+
+Use sanitized SVG when spatial structure is part of the knowledge:
+- mathematics: geometry, circles, graphs, vectors, transformations;
+- physics: vectors, free-body diagrams, trajectories, v–t or s–t graphs, circular motion, energy diagrams;
+- chemistry: skeletal structures, isomers, bond highlighting, reaction-energy profiles, structural or nomenclature questions.
+
+SVG is not decoration. If removing it would not materially reduce clarity or validity, consider not using it.
+
+Use semantic classes rather than hard-coded colors:
+svg-main-line, svg-accent-line, svg-muted-line, svg-secondary-line,
+svg-danger-line, svg-success-line, svg-label, svg-accent-label,
+svg-secondary-label, svg-danger-label, svg-success-label,
+svg-accent-fill, svg-secondary-fill, svg-danger-fill, svg-success-fill.
+
+Base maps them into both Dark and Light themes.
+
+For SVG:
+- use a correct viewBox with generous margins;
+- keep every important shape and label safely inside it;
+- make labels readable on a phone;
+- keep text away from line intersections and boundaries;
+- give important labels roughly 8–12 px visual clearance from nearby strokes;
+- put angle values clearly above or outside their angle rays/arcs;
+- highlight the exact arc, bond, vector, region, or relationship that matters;
+- do not use scripts, event handlers, remote resources, external links, foreignObject, or arbitrary HTML.
+
+## Subject-sensitive presentation
+
+Chemistry:
+- use tables for comparable reaction or given sets such as Hess law or calorimetry;
+- use SVG for molecular geometry, skeletal formulas, isomers, highlighted bonds, and reaction profiles;
+- format formulas and physical states consistently;
+- keep the target reaction visually separate from source reactions.
+
+Physics:
+- use SVG when geometry, direction, motion, forces, graphs, or trajectories matter;
+- use tables for numerical datasets;
+- do not force a diagram onto a purely algebraic question;
+- make sign conventions and axes visually unambiguous.
+
+Mathematics:
+- use SVG for geometry, graphs, and vectors when spatial structure matters;
+- use tables for value relationships;
+- keep symbolic questions as text when symbols alone are clearer.
+
+For other subjects, apply the same principle: choose representation because of the information structure.
+
+## Answer matching
+
+DBD should not mark an equivalent correct answer wrong.
+
+Use:
+- "numeric" when the answer is fundamentally numeric;
+- "numeric_mode": "integer" or "decimal" when useful;
+- a clean canonical answer;
+- "tolerance" when approximation is legitimate;
+- "accepted_answers" for predictable wording or symbol variants;
+- "answer_regex" only when a safe textual pattern genuinely helps.
+
+Examples such as 74, 74°, and "74 derajat" should not become different mathematical truths when the question asks for the same angle.
+
+For MCQ, the answer must be the choice key such as "B".
+
+## Explanations
+
+Keep the answer and explanation separate. The explanation should be concise repair: enough to show the governing idea or method and the critical step. Do not turn every feedback card into a textbook chapter.
+
+When a distractor reflects a specific misconception, "why_wrong" may explain that trap.
+
+## Tags
+
+Tags are human-facing taught concepts or skills in the language of the session.
+
+Good examples: Hukum Hess, kalorimetri, sudut pusat, GLBB, tata nama alkena.
+
+Do not use backend/process labels such as retrieval, transfer, composite routing, or reasoning unless those are genuinely taught skill names.
+
+## Packet-wide quality check
+
+Before exporting, silently audit the COMPLETE packet. Do not show me private chain-of-thought.
+
+Check:
+- Does every question test something worth my attention?
+- Did I accidentally make several numerical skins of the same question?
+- Did I test arithmetic instead of the intended concept?
+- Is information missing or ambiguous?
+- Would a table make a dense prompt easier to parse?
+- Would SVG materially improve a spatial or structural question?
+- Is any SVG decorative rather than instructional?
+- Are SVG labels safely positioned and unclipped?
+- Are valid equivalent typed answers accepted?
+- Does the difficulty mix match the requested purpose?
+- Does the packet cover the intended territory instead of clustering around the easiest thing to generate?
+- Are explanations concise and correct?
+- Are tags useful to a human reading the eventual results?
+
+Fix problems before export.
+
+## DBD Base packet contract
+
+Return a valid packet with:
+
+{
+  "dbd_version": "DBD Base v1.0",
+  "campaign": "...",
+  "subject": "...",
+  "topic": "...",
+  "source": "specific basis used from this chat",
+  "test_type": "coverage|focused|depth|repair|mastery|exam",
+  "working_style": "concept|full",
+  "answer_format": "mcq|mixed",
+  "difficulty": "Easy|Medium|Difficult|Adaptive",
+  "feedback": "immediate|end",
+  "timing": "off|record|ai",
+  "show_timer": false,
+  "questions": []
+}
+
+That metadata describes the packet you designed. I should not need to reconfigure test type, answer format, working style, question count, or difficulty in Base preflight.
+
+Question fields may include:
+id, type, numeric_mode, prompt, choices, answer, accepted_answers,
+answer_regex, tolerance, explanation, why_wrong, tags, difficulty,
+paper_required, calculator_required, stimulus, model_answer, rubric,
+time_limit_seconds.
+
+The Base calculator is always available. calculator_required is metadata only.
+
+## Delivery
+
+For ordinary-sized packets, return normal valid JSON.
+
+For a large packet, a downloadable .json file is always acceptable.
+
+DBD Base r5 can also paste a lossless compressed text transport called DBD Compact v1. Only use this when you have actual code or compression tooling. Never invent compressed text.
+
+Exact format:
+1. Serialize the complete packet as minified UTF-8 JSON.
+2. SHA-256 those original JSON bytes.
+3. GZIP-compress the same JSON bytes losslessly.
+4. Base64URL-encode the compressed bytes without "=" padding.
+5. Return:
+DBDC1.GZ.<64-character-sha256-hex>.<base64url-payload>
+
+If you cannot perform those exact steps reliably, use ordinary JSON or a .json file instead. Content quality matters more than compact transport.
+
+Do not output Question Banks, scheduler weights, maintenance priorities, concept-maintenance infrastructure, or full-DBD architecture. This is a temporary drill packet for DBD Base.`;
+};
+
+createVanillaPrompt=function(){return litePrompt('')};
+copyVanilla=function(button){return copyLitePrompt(button,'')};
+
+/* R5 boot */
+
+const BASE_R5_BOOT_PREV=bootLite10;
+bootLite10=function(){
+  BASE_R5_BOOT_PREV();
+
+  for(const a of DATA.activeSessions||[]){
+    for(const r of a.responses||[])baseR5EnsureCalcHistory(r);
+  }
+  for(const s of DATA.completedSessions||[]){
+    for(const a of s.attempts||[]){
+      if(!Array.isArray(a.calculatorHistory))a.calculatorHistory=[];
+    }
+  }
+
+  DATA.buildId=BUILD_ID;
+  DATA.baseVersion='1.0';
+  DATA.schemaVersion=7;
+  DATA.schemaLabel=BASE_SCHEMA_LABEL;
+  save();
+
+  console.info(`DBD Base v1.0 · ${BUILD_ID} · ${BASE_SCHEMA_LABEL} · DBD Compact v1`);
+};
+
+/* ================= END DBD BASE v1.0 r5 ================= */
 
 bootLite10();
 /* ================= END v0.9.8.4.1 BOOT ================= */

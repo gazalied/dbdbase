@@ -1,3 +1,36 @@
+# DBD Base v1.0 — r5
+
+Build: `base-1.0-r5`  
+Schema: **Schema 7 Base** (numeric compatibility remains `7`)
+
+## R5 — Evidence + Portability
+
+R5 keeps the main interaction simple while strengthening input quality, evidence capture, and portability.
+
+### DBD Compact v1
+Lossless text transport for DBD JSON:
+
+`DBDC1.GZ.<sha256-of-original-json>.<base64url-gzip-payload>`
+
+The ordinary JSON Vault remains canonical. Compact is only a transport wrapper.
+
+### Main additions
+- normal JSON + compressed JSON packet paste;
+- Copy Compressed Vault + compressed Vault file + compressed merge/restore;
+- detailed representation-aware Copy Prompt;
+- native table stimulus;
+- calculator expression/result history in Results;
+- minimal Launch Settings: Feedback, Show timer, next-generation focus;
+- Subject History download;
+- Delete Subject with cascading Base records;
+- History session export/delete menu;
+- conservative laptop/iPad width pass.
+
+Dark/Light r4 design, r3 calculator/SVG work, r3.1 Skip fix, subject aliases, Vault merge, and Schema 7 Base compatibility are preserved.
+
+
+---
+
 # DBD Base v1.0 — r4
 
 Build: `base-1.0-r4`  

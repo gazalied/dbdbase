@@ -1,26 +1,29 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="en" data-theme="dark">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta http-equiv="Pragma" content="no-cache">
-  <meta http-equiv="Expires" content="0">
-  <title>DBD Base v1.0 — Drill Baby Drill</title>
-  <meta name="theme-color" content="#0d0f10">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#0b0d0e">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="DBD Base">
+  <title>DBD Base 1.5 — Drill Baby Drill</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="app.css?v=base10r5">
+  <link rel="stylesheet" href="app.css?v=base15">
 </head>
 <body>
-  <div class="hazard"></div>
-  <header><div class="topbar"><button class="brand brand-button" onclick="homeFromLogo()" aria-label="DBD Base home"><strong>DBD<sup class="base-sup">BASE</sup></strong></button><nav id="navigation"></nav></div></header>
-  <main id="application"></main>
-<script src="app.js?v=base10r5"></script>
+  <div class="hazard" aria-hidden="true"></div>
+  <header class="app-header">
+    <button class="brand" type="button" onclick="route('home')" aria-label="DBD Base home">
+      <span class="brand-dbd">DBD</span><sup>BASE</sup>
+    </button>
+    <nav id="navigation" aria-label="Main navigation"></nav>
+  </header>
+  <main id="app" tabindex="-1"></main>
+  <div id="toast-root" class="toast-root" aria-live="polite"></div>
+  <script src="app.js?v=base15"></script>
 </body>
 </html>

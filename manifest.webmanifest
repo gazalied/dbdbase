@@ -1,10 +1,12 @@
 {
-  "name": "DBD Base v1.0",
-  "short_name": "DBD Base",
+  "name": "DBD Base 1.5",
+  "short_name": "DBD",
+  "description": "Local-first drill renderer and learning evidence recorder.",
   "start_url": "./",
+  "scope": "./",
   "display": "standalone",
-  "background_color": "#0d0f10",
-  "theme_color": "#0d0f10",
+  "background_color": "#0b0d0e",
+  "theme_color": "#0b0d0e",
   "icons": [
     {
       "src": "icon-192.png",
@@ -18,6 +20,5 @@
       "type": "image/png",
       "purpose": "any maskable"
     }
-  ],
-  "description": "Local-first drill renderer and factual learning evidence recorder."
+  ]
 }

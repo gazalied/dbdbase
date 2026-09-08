@@ -1,0 +1,104 @@
+{
+  "dbd_version": "DBD Base 1.5",
+  "campaign": "Renderer example",
+  "subject": "Example Subject",
+  "topic": "Packet v1 surfaces",
+  "source": "DBD Base 1.5 package example",
+  "test_type": "coverage",
+  "working_style": "full",
+  "answer_format": "mixed",
+  "difficulty": "Adaptive",
+  "feedback": "immediate",
+  "timing": "record",
+  "show_timer": false,
+  "questions": [
+    {
+      "id": "mcq-1",
+      "type": "mcq",
+      "prompt": "Choose the single correct statement.",
+      "choices": {
+        "A": "Incorrect statement",
+        "B": "Correct statement",
+        "C": "Another incorrect statement",
+        "D": "Another incorrect statement"
+      },
+      "answer": "B",
+      "explanation": "B is the reference answer.",
+      "tags": ["Single-select MCQ"],
+      "difficulty": "Easy"
+    },
+    {
+      "id": "multi-1",
+      "type": "multi_select",
+      "prompt": "Select every correct statement.",
+      "choices": {
+        "A": "Correct statement one",
+        "B": "Incorrect statement",
+        "C": "Correct statement two",
+        "D": "Incorrect statement"
+      },
+      "answer": ["A", "C"],
+      "explanation": "A and C form the complete correct set.",
+      "tags": ["Multi-select"],
+      "difficulty": "Medium"
+    },
+    {
+      "id": "numeric-table-1",
+      "type": "numeric",
+      "prompt": "Using the data, enter the value 12.5. An explicit + sign is not required.",
+      "answer": "+12.5",
+      "tolerance": 0,
+      "explanation": "12.5 and +12.5 are numerically equivalent here.",
+      "tags": ["Numeric matching", "Table stimulus"],
+      "prerequisites": ["Read a two-column table"],
+      "stimulus": {
+        "type": "table",
+        "title": "Example data",
+        "columns": ["Parameter", "Value"],
+        "rows": [
+          ["A", "10"],
+          ["B", "2.5"]
+        ],
+        "caption": "Native table stimulus"
+      }
+    },
+    {
+      "id": "short-1",
+      "type": "short",
+      "prompt": "Type the word yellow.",
+      "answer": "yellow",
+      "accepted_answers": ["Yellow"],
+      "explanation": "Case variants are accepted through normalized matching.",
+      "tags": ["Short answer"]
+    },
+    {
+      "id": "svg-1",
+      "type": "mcq",
+      "prompt": "Which point is highlighted?",
+      "choices": {
+        "A": "Point A",
+        "B": "Point B"
+      },
+      "answer": "A",
+      "explanation": "Point A uses the semantic accent class.",
+      "tags": ["SVG stimulus"],
+      "stimulus": {
+        "type": "svg",
+        "title": "Theme-aware SVG",
+        "svg": "<svg viewBox=\"0 0 220 120\" xmlns=\"http://www.w3.org/2000/svg\"><line x1=\"30\" y1=\"60\" x2=\"190\" y2=\"60\" class=\"svg-main-line\" stroke-width=\"3\"/><circle cx=\"70\" cy=\"60\" r=\"9\" class=\"svg-accent-fill\"/><circle cx=\"150\" cy=\"60\" r=\"9\" class=\"svg-secondary-fill\"/><text x=\"70\" y=\"38\" text-anchor=\"middle\" class=\"svg-accent-label\" font-size=\"16\">A</text><text x=\"150\" y=\"38\" text-anchor=\"middle\" class=\"svg-secondary-label\" font-size=\"16\">B</text></svg>"
+      }
+    },
+    {
+      "id": "essay-1",
+      "type": "essay",
+      "prompt": "Explain, in one sentence, what DBD Base does.",
+      "model_answer": "DBD Base executes structured drills and records factual learning evidence while semantic interpretation remains upstream.",
+      "rubric": [
+        "Mentions execution/drilling",
+        "Mentions evidence/history",
+        "Does not claim Base performs semantic diagnosis"
+      ],
+      "tags": ["Essay self-check"]
+    }
+  ]
+}

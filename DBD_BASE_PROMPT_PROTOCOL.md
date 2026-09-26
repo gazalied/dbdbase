@@ -1,56 +1,74 @@
-# DBD Base 1.5 — Generation Protocol
+# DBD Base 2.0 — Generation Protocol
 
-The authoritative live generation instruction is produced by the **COPY PROMPT** button inside DBD Base 1.5.
+## Institutional boundary
 
-Core boundary:
+**Subject Chat / teacher / tutor = semantic authority.**
+It understands materials, decides what deserves practice, teaches, diagnoses mistakes and authors trustworthy packets.
 
-> **Subject Chat understands and generates. DBD Base executes and records.**
+**DBD Base = execution + evidence.**
+It renders, runs, resumes, times, records and exports.
 
-Core evidence rule:
+> Score is evidence, not diagnosis.
 
-> **Score is evidence, not diagnosis.**
+## Choose the execution surface
 
-## Packet format
+### Question Drill
+Use for procedures, calculations, application, misconceptions, interpretation, mixed testing and transfer.
 
-DBD Base 1.5 accepts ordinary JSON using DBD Base Packet v1.
+### Flashcard Recall
+Use for atomic retrieval: terminology, definitions, classifications, named theories, reverse recognition, short causal chains, formulas, symbol meanings and rules.
 
-Supported question types:
+Do not use Flashcard Recall as a replacement for integrated problem solving.
 
-- `mcq`
-- `multi_select`
-- `numeric`
-- `short`
-- `essay`
+## Flashcard authoring rules
 
-Supported stimulus types:
+- One card should test one compact retrievable object.
+- Front should be unambiguous without unnecessary prose.
+- Back should be the minimal trustworthy answer needed to judge retrieval.
+- `type` is descriptive metadata, not a separate UI.
+- Do not generate SRS scheduling fields, due dates, ease factors or intervals.
+- Human-facing tags are allowed.
+- Source should identify the actual basis when available.
 
-- `text`
-- `table`
-- `svg`
+Packet:
 
-Important authoring rules:
-
-- MCQ choice values contain answer text only; Base renders A/B/C labels itself.
-- Multi-select answers are arrays of choice keys, e.g. `["A", "C"]`.
-- Use tables for aligned/comparable data; do not fake tables with SVG.
-- Use SVG only when spatial/structural relationships matter.
-- Use human-facing concept/skill tags.
-- Distinguish target tags from optional `prerequisites` context when useful.
-- For numeric answers, an explicit leading `+` is normally unnecessary.
-- Audit answer uniqueness, units, signs, and domain validity before exporting.
-- In Chemistry specifically, verify equation balance and Hess-law constructibility before export.
-- “Mentioned” does not automatically mean “taught”.
-
-## DBD Compact v1
-
-Optional packet transport:
-
-```text
-DBDC1.GZ.<sha256-hex>.<base64url-payload>
+```json
+{
+  "packet_type": "flashcards",
+  "title": "...",
+  "subject": "...",
+  "topic": "...",
+  "source": "...",
+  "cards": []
+}
 ```
 
-The complete packet must be serialized as minified UTF-8 JSON, SHA-256 hashed, losslessly GZIP-compressed, then Base64URL encoded without `=` padding.
+Card:
 
-Never fabricate compressed text. If exact compression tooling is unavailable, provide ordinary JSON or a downloadable JSON file.
+```json
+{
+  "id": "...",
+  "topic": "...",
+  "subtopic": "...",
+  "type": "TERM",
+  "front": "...",
+  "back": "...",
+  "priority": "core",
+  "source": "...",
+  "tags": ["..."]
+}
+```
 
-DBD Compact is not the normal Vault backup workflow in 1.5.
+## Question authoring rules
+
+- Use the existing DBD Base question format.
+- Prefer native tables for aligned/comparable data.
+- Use sanitized SVG only when spatial/structural information matters.
+- Use plain text when that is clearest.
+- Audit STEM questions for solvability, sufficient data, answer uniqueness, signs/units and domain-specific consistency.
+- For Chemistry, explicitly verify equation balance and Hess constructibility when applicable.
+- Full MCQ choices should remain meaningful because Results may be audited upstream.
+
+## Output
+
+Return valid JSON only, or a downloadable JSON file for large packets. DBD Compact may be used only when the exact lossless transport encoding is actually produced.

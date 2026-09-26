@@ -1,0 +1,51 @@
+{
+  "packet_type": "flashcards",
+  "dbd_version": "DBD Base 2.0",
+  "title": "Visual Recall Demo",
+  "subject": "Matematika Wajib",
+  "topic": "Lingkaran",
+  "source": "DBD Base 2.0 example",
+  "cards": [
+    {
+      "id": "circle-001",
+      "topic": "Lingkaran",
+      "subtopic": "Sudut pusat",
+      "type": "VISUAL",
+      "front": "Apa nama sudut berwarna kuning?",
+      "front_stimulus": {
+        "type": "svg",
+        "title": "Lingkaran",
+        "svg": "<svg viewBox='0 0 420 250' xmlns='http://www.w3.org/2000/svg'><circle class='svg-main-line' cx='210' cy='125' r='92' fill='none' stroke-width='3'/><line class='svg-main-line' x1='210' y1='125' x2='155' y2='52' stroke-width='3'/><line class='svg-main-line' x1='210' y1='125' x2='304' y2='118' stroke-width='3'/><path class='svg-accent-line' d='M190 99 A34 34 0 0 1 244 122' fill='none' stroke-width='6'/><circle class='svg-accent-fill' cx='210' cy='125' r='5'/><text class='svg-label' x='143' y='43' font-size='20'>A</text><text class='svg-label' x='312' y='123' font-size='20'>B</text><text class='svg-label' x='194' y='148' font-size='20'>O</text></svg>"
+      },
+      "back": "Sudut pusat — titik sudutnya berada di pusat lingkaran.",
+      "priority": "core",
+      "tags": ["Sudut pusat", "Lingkaran"]
+    },
+    {
+      "id": "circle-002",
+      "topic": "Lingkaran",
+      "subtopic": "Sudut keliling",
+      "type": "FORMULA_RULE",
+      "front": "Hubungan sudut keliling dengan busur yang dihadapinya?",
+      "back": "Sudut keliling = ½ × besar busur yang dihadapinya.",
+      "priority": "core",
+      "tags": ["Sudut keliling"]
+    },
+    {
+      "id": "geo-001",
+      "topic": "Technical Geography",
+      "subtopic": "Topography",
+      "type": "VISUAL",
+      "front": "Garis yang menghubungkan titik berketinggian sama disebut?",
+      "back": "Contour line / garis kontur",
+      "back_stimulus": {
+        "type": "table",
+        "title": "Recall cue",
+        "columns": ["Ciri", "Makna"],
+        "rows": [["Garis rapat", "Lereng lebih curam"], ["Garis renggang", "Lereng lebih landai"]]
+      },
+      "priority": "core",
+      "tags": ["Technical Geography", "Kontur"]
+    }
+  ]
+}

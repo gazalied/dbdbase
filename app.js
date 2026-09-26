@@ -1,5 +1,5 @@
 const APP_VERSION='DBD Base v2.0';
-const BUILD_ID='base-2.0-r1';
+const BUILD_ID='base-2.0-final';
 const STORAGE_KEY='dbd_gazali';
 const LARGE_PACKET_THRESHOLD=15;
 const SUBJECTS=[
@@ -8656,7 +8656,7 @@ bootLite10();
     const drills=(DATA.completedSessions||[]).length;
     const answered=totalAnsweredForMorale();
     const subjects=baseSubjectRecords().length;
-    return `<section class="lite-home"><div class="lite-home-hero base-home-r2"><div class="base-home-kicker">${DBD2.versionLabel}</div><h1>Ready to drill.</h1><div class="lite-primary-actions"><button class="button primary" onclick="copyLitePrompt(this)">COPY PROMPT</button><button class="button" onclick="route('import')">IMPORT PACKAGE</button></div><div class="lite-stat-strip"><div class="lite-stat"><strong>${drills}</strong><span>Completed</span></div><div class="lite-stat"><strong>${answered}</strong><span>Questions answered</span></div><div class="lite-stat"><strong>${subjects}</strong><span>Subjects</span></div></div><div class="base-r5-home-note"><strong>2.0 now supports two execution surfaces:</strong> question drills and flashcard recall. Same local evidence layer. No autonomous tutoring bloat. just execution + evidence.</div></div>${ongoingSessions(true)}</section>`;
+    return `<section class="lite-home"><div class="lite-home-hero base-home-r2"><div class="base-home-kicker">${DBD2.versionLabel}</div><h1>Ready to drill.</h1><div class="lite-primary-actions"><button class="button primary" onclick="copyLitePrompt(this)">COPY PROMPT</button><button class="button" onclick="route('import')">IMPORT PACKAGE</button></div><div class="lite-stat-strip"><div class="lite-stat"><strong>${drills}</strong><span>Completed</span></div><div class="lite-stat"><strong>${answered}</strong><span>Questions answered</span></div><div class="lite-stat"><strong>${subjects}</strong><span>Subjects</span></div></div></div>${ongoingSessions(true)}</section>`;
   };
 
   function flashcardDrillView(session){
@@ -8693,7 +8693,7 @@ bootLite10();
   summary = function(){
     const s=getSession(currentSessionId)||DATA.completedSessions[0];
     if(!s) return `<div class="empty">No completed session.</div>`;
-    if(s.mode!=='flashcards') return BASE_R3_SUMMARY_PREV ? BASE_R3_SUMMARY_PREV() : BASE_R5_SUMMARY_FALLBACK(s);
+    if(s.mode!=='flashcards') return BASE_R5_SUMMARY_FALLBACK(s);
     const exportPayload=flashExportPayload(s);
     return `<section class="summary-shell"><div class="score-hero"><div class="flash-mode-badge">Flashcard Recall</div><div class="score-main">${s.finalKnown}<span>/${s.totalCards}</span></div><div class="score-percent">${Math.round(s.accuracy||0)}% resolved by session end</div><div class="score-caption">${esc(s.subject)}${s.topic?` · ${esc(s.topic)}`:''}</div></div><div class="summary-surface"><section class="summary-section"><div class="summary-heading">Session evidence</div><div class="flash-summary-grid"><div class="flash-summary-card"><strong>${s.firstPassKnown}</strong><span>First-pass knew</span></div><div class="flash-summary-card"><strong>${s.firstPassMissed}</strong><span>First-pass missed</span></div><div class="flash-summary-card"><strong>${s.finalUnresolved}</strong><span>Final unresolved</span></div><div class="flash-summary-card"><strong>${s.rounds}</strong><span>Rounds</span></div></div></section><section class="summary-section"><div class="summary-heading">Unresolved cards</div>${s.missedCards?.length?`<div class="flash-summary-list">${s.missedCards.map(c=>`<div class="flash-list-item"><strong>${esc(c.front||'')}</strong><small>${esc(c.back||'')}</small></div>`).join('')}</div>`:`<div class="message success">No unresolved cards. Deck cleared for this session.</div>`}</section><div class="result-actions one"><button class="button primary" onclick='copyText(${JSON.stringify(JSON.stringify(exportPayload,null,2))},this,true)'>COPY RESULTS JSON</button></div><div class="compact-actions"><button class="button tiny" onclick="downloadJson('${s.id}')">JSON ↓</button></div></div></section>`;
   };
@@ -8817,3 +8817,652 @@ DBD records what happened. The subject chat decides what it means.`;
 })();
 /* ================= END DBD Base 2.0 patch ================= */
 
+
+/* =====================================================================
+   DBD BASE 2.0 FINAL — canonical release hardening
+   Build: base-2.0-final
+   ===================================================================== */
+(function(){
+  const FINAL_BUILD='base-2.0-final';
+  const FINAL_PRODUCT='DBD Base 2.0';
+  let importKind='quiz';
+  let calcCursor=String(typeof BASE_R3_CALC_EXPR!=='undefined'?BASE_R3_CALC_EXPR:'').length;
+
+  document.title='DBD Base 2.0 — Drill Baby Drill';
+
+  function isFlashPacketFinal(p){
+    return !!p && (p.packetType==='flashcards'||p.packet_type==='flashcards'||p.mode==='flashcards'||Array.isArray(p.cards));
+  }
+  function isFlashSessionFinal(a){return !!a&&a.mode==='flashcards'}
+  function isMultiSelect(q){return !!q&&q.type==='multi_select'}
+  window.isMultiSelect=isMultiSelect;
+
+  /* ---------- canonical new response: a UI default is not evidence ---------- */
+  const OLD_NEW_RESPONSE_FINAL=newResponse;
+  newResponse=function(){
+    const r=OLD_NEW_RESPONSE_FINAL();
+    return {...r,confidence:null,productComment:'',skipReason:null,calculatorHistory:Array.isArray(r.calculatorHistory)?r.calculatorHistory:[]};
+  };
+
+  /* ---------- question normalization incl. multi-select + context ---------- */
+  normalizeQuestion=function(raw,i){
+    raw=raw||{};
+    const prompt=raw.prompt??raw.question??raw.q??raw.text;
+    if(prompt==null)return null;
+
+    let choices=raw.choices??raw.options??null;
+    if(Array.isArray(choices)){
+      const o={};choices.forEach((v,j)=>o[String.fromCharCode(65+j)]=String(v));choices=o;
+    }else if(choices&&typeof choices==='object'){
+      const o={};Object.entries(choices).forEach(([k,v])=>o[String(k).toUpperCase()]=String(v));choices=o;
+    }
+
+    let type=String(raw.type||(choices?'mcq':'short')).toLowerCase().replace(/-/g,'_');
+    if(['multiselect','rich_mcq','multiple_select','multiple_choice_multi'].includes(type))type='multi_select';
+
+    const mapChoice=value=>{
+      const s=String(value??'');
+      if(!choices)return s;
+      const key=Object.keys(choices).find(k=>norm(k)===norm(s))||Object.keys(choices).find(k=>norm(choices[k])===norm(s));
+      return key||s;
+    };
+
+    let answer=raw.answer??raw.correct??raw.correct_answer??raw.expected_answer??'';
+    if(type==='multi_select'){
+      const arr=Array.isArray(answer)?answer:(String(answer).trim()?String(answer).split(/[,;|]/):[]);
+      answer=[...new Set(arr.map(mapChoice).filter(Boolean))];
+    }else{
+      answer=mapChoice(answer);
+    }
+
+    const accepted=Array.isArray(raw.accepted_answers)?raw.accepted_answers.map(String):[];
+    if(type!=='multi_select'&&answer!==''&&!accepted.some(x=>norm(x)===norm(answer)))accepted.unshift(String(answer));
+
+    return {
+      id:String(raw.id??`q${i+1}`),
+      uid:String(raw.uid||''),
+      type,
+      prompt:String(prompt),
+      choices,
+      answer,
+      acceptedAnswers:accepted,
+      answerRegex:Array.isArray(raw.answer_regex)?raw.answer_regex:Array.isArray(raw.answerRegex)?raw.answerRegex:[],
+      tolerance:Number.isFinite(Number(raw.tolerance))?Number(raw.tolerance):0,
+      numericMode:String(raw.numeric_mode??raw.numericMode??(type==='numeric'?'decimal':'text')).toLowerCase(),
+      explanation:String(raw.explanation??raw.reason??''),
+      whyWrong:raw.why_wrong??raw.whyWrong??{},
+      tags:Array.isArray(raw.tags)?raw.tags.map(String):[],
+      prerequisites:Array.isArray(raw.prerequisites)?raw.prerequisites.map(String):[],
+      contextLabel:String(raw.context_label??raw.contextLabel??raw.domain_label??''),
+      difficulty:String(raw.difficulty||''),
+      timeLimitSeconds:Number.isFinite(Number(raw.time_limit_seconds??raw.timeLimitSeconds))?Number(raw.time_limit_seconds??raw.timeLimitSeconds):null,
+      paperRequired:raw.paper_required===true||raw.paperRequired===true,
+      calculatorRequired:raw.calculator_required===true||raw.calculatorRequired===true,
+      stimulus:normalizeStimulus(raw.stimulus),
+      modelAnswer:String(raw.model_answer??raw.modelAnswer??''),
+      rubric:Array.isArray(raw.rubric)?raw.rubric.map(String):[]
+    };
+  };
+
+  function normalizeCardFinal(raw,i){
+    raw=raw||{};
+    return {
+      id:String(raw.id||`card-${i+1}`),
+      topic:String(raw.topic||''),
+      subtopic:String(raw.subtopic||''),
+      type:String(raw.type||'TERM').toUpperCase(),
+      front:String(raw.front??''),
+      back:String(raw.back??''),
+      frontStimulus:normalizeStimulus(raw.front_stimulus??raw.frontStimulus??null),
+      backStimulus:normalizeStimulus(raw.back_stimulus??raw.backStimulus??null),
+      acceptedAnswers:Array.isArray(raw.accepted_answers)?raw.accepted_answers.map(String):[],
+      explanation:String(raw.explanation||raw.note||''),
+      tags:Array.isArray(raw.tags)?raw.tags.map(String):[],
+      source:String(raw.source||''),
+      priority:String(raw.priority||''),
+      reverseCard:raw.reverse_card===true||raw.reverseCard===true
+    };
+  }
+
+  normalizePacket=function(parsed){
+    const p=Array.isArray(parsed)?{questions:parsed}:(parsed||{});
+    if(isFlashPacketFinal(p)){
+      const cards=(Array.isArray(p.cards)?p.cards:[]).map(normalizeCardFinal).filter(c=>c.front.trim()||c.frontStimulus);
+      if(!cards.length)throw new Error('The flashcard deck contains no valid cards.');
+      return {
+        id:String(p.id||makeUid('packet')),
+        packetType:'flashcards',
+        dbdVersion:String(p.dbd_version||FINAL_PRODUCT),
+        campaign:String(p.campaign||'Recall'),
+        subject:String(p.subject||'Unspecified Subject'),
+        topic:String(p.topic||p.title||'Untitled deck'),
+        title:String(p.title||p.topic||'Flashcards'),
+        source:String(p.source||'Imported flashcard deck'),
+        cards,
+        questions:[],
+        feedback:'immediate',
+        timing:'record',
+        showTimer:false,
+        confidenceMode:'off'
+      };
+    }
+
+    if(!Array.isArray(p.questions))throw new Error('The question packet has no questions array.');
+    const questions=p.questions.map(normalizeQuestion).filter(Boolean);
+    if(!questions.length)throw new Error('The question packet contains no valid questions.');
+    const packet=ensurePacketIdentity({
+      packetUid:String(p.packet_uid||p.packetUid||''),
+      dbdVersion:String(p.dbd_version||FINAL_PRODUCT),
+      campaign:String(p.campaign||subject().campaign),
+      subject:String(p.subject||subject().name),
+      topic:String(p.topic||''),
+      source:String(p.source||''),
+      stream:p.stream&&typeof p.stream==='object'?{id:String(p.stream.id||''),name:String(p.stream.name||'')}:null,
+      testType:String(p.test_type||DATA.setup.testType),
+      workingStyle:String(p.working_style||DATA.setup.workingStyle),
+      answerFormat:String(p.answer_format||DATA.setup.answerFormat),
+      difficulty:String(p.difficulty||DATA.setup.difficulty),
+      questions
+    });
+    const fb=String(p.feedback||p.feedback_mode||'').toLowerCase();
+    packet.feedback=['immediate','end'].includes(fb)?fb:null;
+    const tr=String(p.timing||p.timing_mode||'').toLowerCase().replace(/\s+/g,'_');
+    const timingMap={off:'off',record:'record',record_only:'record','record-only':'record',ai:'ai',ai_set:'ai','ai-set':'ai'};
+    packet.timing=timingMap[tr]||null;
+    packet.showTimer=p.show_timer===true||p.showTimer===true;
+    packet.confidenceMode=['off','none','disabled'].includes(String(p.confidence??p.confidence_mode??'').toLowerCase())?'off':'on';
+    return packet;
+  };
+
+  isMCQ=function(q){return !!(q&&q.choices&&Object.keys(q.choices).length&&!isMultiSelect(q))};
+
+  validatePacket=function(p){
+    const errors=[],warnings=[],ids=new Set();
+    if(isFlashPacketFinal(p)){
+      (p.cards||[]).forEach((c,i)=>{
+        const n=i+1;
+        if(!(c.front.trim()||c.frontStimulus))errors.push(`Card ${n} has no front content.`);
+        if(!(c.back.trim()||c.backStimulus))errors.push(`Card ${n} has no back content.`);
+        if(ids.has(c.id))warnings.push(`Duplicate card ID: ${c.id}.`);ids.add(c.id);
+        for(const stim of [c.frontStimulus,c.backStimulus]){
+          if(stim?.type==='table'&&!(stim.rows||[]).length)warnings.push(`Card ${n} has an empty table stimulus.`);
+          if(stim?.type==='svg'&&!String(stim.svg||'').trim())warnings.push(`Card ${n} has an empty SVG stimulus.`);
+        }
+      });
+      return {errors,warnings,mcq:0,multi:0,typed:0,totalLimit:0,limits:[],mode:'flashcards',cardCount:(p.cards||[]).length};
+    }
+
+    let mcq=0,multi=0,typed=0,totalLimit=0;const limits=[];
+    (p.questions||[]).forEach((q,i)=>{
+      const n=i+1;
+      if(!q.prompt.trim())errors.push(`Question ${n} has no prompt.`);
+      if(ids.has(q.id))warnings.push(`Duplicate question ID: ${q.id}.`);ids.add(q.id);
+      if(isMultiSelect(q)){
+        multi++;
+        const keys=Object.keys(q.choices||{}),ans=Array.isArray(q.answer)?q.answer:[];
+        if(keys.length<2)errors.push(`Question ${n} has fewer than two choices.`);
+        if(!ans.length)errors.push(`Question ${n} has no correct selections.`);
+        if(ans.some(a=>!keys.some(k=>norm(k)===norm(a))))errors.push(`Question ${n} has a multi-select answer outside its choices.`);
+      }else if(isMCQ(q)){
+        mcq++;const keys=Object.keys(q.choices||{});
+        if(keys.length<2)errors.push(`Question ${n} has fewer than two choices.`);
+        if(!keys.some(k=>norm(k)===norm(q.answer)))errors.push(`Question ${n} has an answer that does not match any choice.`);
+      }else{
+        typed++;
+        if(!['short','numeric','self_check','essay'].includes(q.type))errors.push(`Question ${n} uses unsupported type “${q.type}”.`);
+        if(q.type==='essay'){
+          if(!q.modelAnswer)errors.push(`Essay question ${n} has no model_answer.`);
+          if(!q.rubric.length)warnings.push(`Essay question ${n} has no rubric.`);
+        }else if(String(q.answer??'')===''&&!(q.acceptedAnswers||[]).length){errors.push(`Question ${n} has no expected answer.`)}
+      }
+      if(!q.explanation&&q.type!=='essay')warnings.push(`Question ${n} has no explanation.`);
+      if(!q.tags.length)warnings.push(`Question ${n} has no skill tags.`);
+      if(q.stimulus?.type==='table'){
+        const widths=(q.stimulus.rows||[]).map(r=>r.length);
+        if(!widths.length)warnings.push(`Question ${n} has an empty table stimulus.`);
+        if(widths.length&&new Set(widths).size>1)warnings.push(`Question ${n} has table rows with different column counts.`);
+      }
+      if(DATA.setup.timing==='ai'){
+        if(!(q.timeLimitSeconds>0))errors.push(`Question ${n} has no positive AI-set time limit.`);
+        else{totalLimit+=q.timeLimitSeconds;limits.push(q.timeLimitSeconds)}
+      }
+    });
+    return {errors,warnings,mcq,multi,typed,totalLimit,limits,mode:'questions'};
+  };
+
+  /* ---------- separate import lanes ---------- */
+  window.openQuizImport=function(){importKind='quiz';route('import')};
+  window.openRecallImport=function(){importKind='flashcards';route('import')};
+
+  const OLD_PREPARE_PACKET_FINAL=preparePacket;
+  preparePacket=function(raw,name){
+    try{
+      const packet=normalizePacket(extractJSON(raw));
+      if(importKind==='quiz'&&isFlashPacketFinal(packet))throw new Error('This is a flashcard deck. Use IMPORT FLASHCARD DECK from Home.');
+      if(importKind==='flashcards'&&!isFlashPacketFinal(packet))throw new Error('This is a question packet. Use IMPORT QUIZ PACKAGE from Home.');
+      syncSetupFromPacket(packet);
+      const validation=validatePacket(packet);
+      DATA.pendingPacket={packet,validation,sourceName:name,importedAt:Date.now()};
+      importError='';save();route('preflight');
+    }catch(e){importError=e.message||'Could not load package.';render()}
+  };
+
+  importView=function(){
+    const recall=importKind==='flashcards';
+    return `<section class="panel base-r5-import dbd20-import">
+      <div class="eyebrow">${recall?'Recall deck':'Question packet'}</div>
+      <h1 style="font-size:2rem">${recall?'Import flashcard deck.':'Import quiz package.'}</h1>
+      <p class="muted">${recall?'Front/back recall deck. Text, native tables, and sanitized SVG are supported on either side.':'Normal DBD question packet. MCQ, multi-select, numeric, short, essay, tables, and sanitized SVG are supported.'}</p>
+      ${importError?`<div class="message error">${esc(importError)}</div>`:''}
+      <div id="dropzone" class="dropzone" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="dropFile(event)">
+        <strong>${recall?'SELECT DECK FILE':'SELECT QUIZ FILE'}</strong>
+        <p class="muted">JSON or DBD Compact text. Everything is read locally.</p>
+        <input id="json-file" type="file" accept=".json,.txt,.dbdc,.dbd,application/json,text/plain" onchange="fileChosen(event)" style="display:none">
+        <button class="button primary" onclick="document.getElementById('json-file').click()">CHOOSE FILE</button>
+        <div class="file-meta" id="file-meta"></div>
+      </div>
+      <div class="base-r5-paste-grid">
+        <details class="import-paste"><summary>Paste JSON instead</summary><div><textarea id="packet-input" class="code-input" placeholder="Paste ${recall?'flashcard deck':'question packet'} JSON here."></textarea><button class="button primary block" onclick="readPastedPacket()">REVIEW ${recall?'DECK':'PACKET'}</button></div></details>
+        <details class="import-paste"><summary>Paste compressed JSON instead</summary><div><textarea id="compact-packet-input" class="code-input" placeholder="Paste DBDC1.GZ.… here."></textarea><button class="button primary block" onclick="readPastedCompactPacket(this)">DECOMPRESS & REVIEW</button></div></details>
+      </div>
+      <div class="actions"><button class="button" onclick="route('home')">CANCEL</button></div>
+    </section>`;
+  };
+
+  /* ---------- separate generation prompts ---------- */
+  function quizPrompt(subjectName=''){
+    const target=subjectName?`Target subject: ${subjectName}`:'Target subject: infer it from this subject chat.';
+    return `# DBD Base 2.0 — QUESTION DRILL packet request
+
+DBD Base is the execution + evidence layer. This subject chat is the semantic layer: it teaches, judges scope, diagnoses mistakes, and decides repair.
+
+${target}
+
+Before generating, inspect the actual files, notes, teacher scope, earlier explanations, mistakes, and assessment context in THIS chat. Ask me ONE compact setup question and wait. Resolve only useful things: material scope, rough drill intent, question count, feedback timing, visible timer, and optional extra focus. Infer the answer-format mix and difficulty yourself.
+
+## Question doctrine
+Every item should test something worth attention: retrieval when genuinely needed, procedure, method choice, misconception, interpretation, application, or transfer. Avoid filler, repeated numerical skins, and accidental reading difficulty.
+
+## Question types
+Supported: mcq, multi_select, numeric, short, essay.
+For multi_select use an answer array, e.g. "answer":["A","C"]. Exact-set grading is the default.
+
+## Representation
+Choose representation because of information structure:
+- plain text for prose/equations when sufficient;
+- native table stimulus for aligned givens, comparable data, Hess reaction sets, datasets;
+- sanitized SVG when spatial/structural information matters: geometry, graphs, vectors, free-body diagrams, chemical skeletal structures, maps/schematics.
+
+Table stimulus:
+{"type":"table","title":"...","columns":["..."],"rows":[["...","..."]],"source":""}
+
+SVG stimulus uses stimulus.type="svg" and stimulus.svg. Use semantic classes, never hard-coded theme colors:
+svg-main-line, svg-accent-line, svg-muted-line, svg-secondary-line, svg-danger-line, svg-success-line, svg-label, svg-accent-label, svg-secondary-label, svg-danger-label, svg-success-label, svg-accent-fill, svg-secondary-fill, svg-danger-fill, svg-success-fill.
+Keep labels safely inside the viewBox, clear of lines/angle arcs, and readable on a phone. No scripts, handlers, foreignObject, remote resources, or links.
+
+## Evidence-aware authoring
+Score is evidence, not diagnosis. Do not make a wrong final answer imply that the learner knows nothing. Keep explanations concise and tags human-facing. context_label may be supplied when a broad pretest needs a non-spoiling domain/source cue.
+
+## Numeric matching
+Use type numeric for numeric truths. Use tolerance where legitimate, accepted_answers for wording variants, answer_regex only when safe. A positive number written as 12.5 must not require an explicit + sign unless the sign symbol itself is the tested skill.
+
+## Domain validation
+Silently audit the complete packet before export. For STEM, independently verify solvability, answer uniqueness, sufficient data, units/signs, and the intended answer. For Chemistry also verify equation balance and Hess constructibility when relevant. Do not let a broken generated question masquerade as learner failure.
+
+## Packet
+Return valid JSON with dbd_version "DBD Base 2.0", subject, topic, source, feedback (immediate|end), timing (off|record|ai), show_timer, optional confidence ("off" to disable), and questions[]. Large packets may be attached as .json.
+
+DBD records what happened. The subject chat decides what it means.`;
+  }
+
+  function recallPrompt(subjectName=''){
+    const target=subjectName?`Target subject: ${subjectName}`:'Target subject: infer it from this subject chat.';
+    return `# DBD Base 2.0 — FLASHCARD RECALL deck request
+
+DBD Base is the execution + evidence layer. This subject chat is the semantic authority.
+
+${target}
+
+Create a rapid-retrieval deck, not an Anki curriculum system. Use cards only for atomic knowledge worth retrieving quickly: terminology, definitions, classifications, named theories, reverse recognition, short causal chains, formulas/rules, symbol meanings, or compact visual identification.
+
+Do NOT turn procedures, integrated calculations, map interpretation chains, or transfer problems into cards just to fill a deck. Those belong in Question Drill.
+
+## Card contract
+Top level:
+{
+  "packet_type":"flashcards",
+  "dbd_version":"DBD Base 2.0",
+  "title":"...",
+  "subject":"...",
+  "topic":"...",
+  "source":"...",
+  "cards":[]
+}
+
+Card:
+{
+  "id":"...",
+  "topic":"...",
+  "subtopic":"...",
+  "type":"TERM|REVERSE|CONTRAST|MECHANISM|FORMULA_RULE|VISUAL",
+  "front":"...",
+  "back":"...",
+  "front_stimulus":null,
+  "back_stimulus":null,
+  "priority":"core|supporting",
+  "source":"...",
+  "tags":["..."]
+}
+
+Card type is metadata only. Runtime remains front → reveal → KNEW/MISSED.
+
+## Rich visual cards
+Flashcards can use the SAME safe stimulus system as questions on either side.
+- native table for compact aligned information;
+- sanitized SVG for maps/schematics, geometry, graphs, chemical structures, symbols, or any spatial/structural recall cue.
+Use front_stimulus and/or back_stimulus.
+
+Table example:
+"front_stimulus":{"type":"table","title":"...","columns":["A","B"],"rows":[["...","..."]]}
+
+SVG example:
+"front_stimulus":{"type":"svg","title":"Identify this","svg":"<svg viewBox='0 0 420 260'>...</svg>"}
+
+For SVG use semantic classes only: svg-main-line, svg-accent-line, svg-muted-line, svg-secondary-line, svg-label, svg-accent-label, and matching fill/danger/success variants. No scripts, event handlers, foreignObject, remote resources, or external links. Keep diagrams compact and labels unclipped.
+
+## Quality
+Cards should be atomic and concise enough to answer mentally in seconds. Avoid cards whose back is an essay. If a causal mechanism genuinely needs 2–4 short steps, keep it compact. A nearly-known answer should still be rated MISSED by the learner; DBD does not infer this.
+
+Do not generate due dates, SRS intervals, streaks, XP, scheduling, autonomous explanations, or curriculum logic.
+
+Return valid JSON or attach a .json file for a large deck.`;
+  }
+
+  window.copyQuizPrompt=async function(button){
+    const old=button?.textContent||'COPY QUIZ PROMPT';
+    await baseR5Clipboard(quizPrompt(''));
+    if(button){button.textContent='COPIED ✓';setTimeout(()=>button.textContent=old,1200)}
+  };
+  window.copyRecallPrompt=async function(button){
+    const old=button?.textContent||'COPY RECALL PROMPT';
+    await baseR5Clipboard(recallPrompt(''));
+    if(button){button.textContent='COPIED ✓';setTimeout(()=>button.textContent=old,1200)}
+  };
+
+  /* Backward copy action now means question prompt. */
+  litePrompt=quizPrompt;
+  createVanillaPrompt=function(){return quizPrompt('')};
+  copyVanilla=function(button){return copyQuizPrompt(button)};
+
+  /* ---------- clean compact Home: two explicit execution lanes ---------- */
+  function questionAnswerCount(){
+    return (DATA.completedSessions||[]).filter(s=>s.mode!=='flashcards').reduce((n,s)=>n+Number(s.answered||s.totalQuestions||0),0);
+  }
+  home=function(){
+    const completed=(DATA.completedSessions||[]).length;
+    const questions=questionAnswerCount();
+    const subjects=baseSubjectRecords().length;
+    return `<section class="lite-home dbd20-home">
+      <div class="lite-home-hero dbd20-home-hero">
+        <div class="base-home-kicker">DBD BASE 2.0</div>
+        <h1>Ready to drill.</h1>
+        <div class="dbd20-mode-grid">
+          <section class="dbd20-mode-card">
+            <div><span class="dbd20-mode-kicker">QUESTION DRILL</span><h2>Test.</h2></div>
+            <div class="dbd20-mode-actions"><button class="button primary" onclick="copyQuizPrompt(this)">COPY QUIZ PROMPT</button><button class="button" onclick="openQuizImport()">IMPORT QUIZ PACKAGE</button></div>
+          </section>
+          <section class="dbd20-mode-card recall">
+            <div><span class="dbd20-mode-kicker">FLASHCARD RECALL</span><h2>Retrieve.</h2></div>
+            <div class="dbd20-mode-actions"><button class="button primary" onclick="copyRecallPrompt(this)">COPY RECALL PROMPT</button><button class="button" onclick="openRecallImport()">IMPORT FLASHCARD DECK</button></div>
+          </section>
+        </div>
+        <div class="lite-stat-strip"><div class="lite-stat"><strong>${completed}</strong><span>Completed</span></div><div class="lite-stat"><strong>${questions}</strong><span>Questions answered</span></div><div class="lite-stat"><strong>${subjects}</strong><span>Subjects</span></div></div>
+      </div>
+      ${ongoingSessions(true)}
+    </section>`;
+  };
+
+  /* ---------- confidence + separated comments ---------- */
+  window.setProductComment=function(v){const r=currentResponse();if(r){r.productComment=String(v||'');save()}};
+  function finalControlBar(q,r,commentOpen){
+    const a=active();
+    const confidenceOn=(a?.packet?.confidenceMode||'on')!=='off';
+    const confidence=confidenceOn?`<div class="base-r3-confidence" role="group" aria-label="Confidence">${CONFIDENCES.map(([id,l])=>`<button class="${r.confidence===id?'active':''}" ${r.locked?'disabled':''} onclick="setConfidence('${id}')">${esc(l)}</button>`).join('')}</div><div class="base-r3-divider"></div>`:'';
+    return `<div class="base-r3-controlbar">${confidence}<div class="base-r3-tools"><button class="base-r3-tool calc ${BASE_R3_CALC_OPEN?'active':''}" onclick="baseR3ToggleCalc()" aria-label="Calculator">🧮</button><button class="base-r3-tool comment ${commentOpen||r.comment||r.productComment?'active':''}" onclick="toggleCommentBox()" aria-label="Comment">💬</button><button class="base-r3-tool flag ${r.flagged?'active':''}" onclick="toggleFlag()" aria-label="Flag question">⚑</button></div></div>${baseR3CalculatorPanel()}${commentOpen?`<div class="dbd20-comment-panel"><label>CONTENT COMMENT <small>goes to Subject Chat results</small></label><textarea oninput="setComment(this.value)" placeholder="About the material, reasoning, wording, or what you want the subject chat to know...">${esc(r.comment||'')}</textarea><label>DBD PRODUCT FEEDBACK <small>kept separate from academic evidence</small></label><textarea oninput="setProductComment(this.value)" placeholder="UI bug, button size, rendering issue, product feedback...">${esc(r.productComment||'')}</textarea></div>`:''}`;
+  }
+
+  /* ---------- multi-select ---------- */
+  window.setMultiChoice=function(k){
+    const a=active(),r=currentResponse();if(!a||!r||!responseEditable(a,r))return;
+    const set=new Set(Array.isArray(r.answer)?r.answer:[]);
+    if(set.has(k))set.delete(k);else set.add(k);
+    r.answer=[...set];r.status=r.answer.length?'selected':'unseen';r.timedOut=false;save();render();
+  };
+
+  const OLD_CALCULATE_CORRECT_FINAL=calculateCorrect;
+  calculateCorrect=function(q,r){
+    if(isMultiSelect(q)){
+      if(['dontknow','timeout','skipped','unseen'].includes(r.status))return false;
+      const got=[...(Array.isArray(r.answer)?r.answer:[])].map(norm).sort();
+      const exp=[...(Array.isArray(q.answer)?q.answer:[])].map(norm).sort();
+      return got.length===exp.length&&got.every((x,i)=>x===exp[i]);
+    }
+    return OLD_CALCULATE_CORRECT_FINAL(q,r);
+  };
+
+  const OLD_SUBMIT_FINAL=submitAnswer;
+  submitAnswer=function(){
+    const a=active(),q=currentQuestion(),r=currentResponse();
+    if(!a||!q||!r||r.locked)return;
+    if(!isMultiSelect(q))return OLD_SUBMIT_FINAL();
+    if(!Array.isArray(r.answer)||!r.answer.length)return;
+    accrueTime();r.status='answered';r.correct=calculateCorrect(q,r);r.locked=a.setupSnapshot.feedback==='immediate';r.revealed=a.setupSnapshot.feedback==='immediate';save();
+    if(a.setupSnapshot.feedback==='end')advanceAfterSubmit();else render();
+  };
+
+  /* ---------- calculator cursor + Use Answer ---------- */
+  function calcExpr(){return String(BASE_R3_CALC_EXPR||'')}
+  function setCalcExpr(v){BASE_R3_CALC_EXPR=String(v??'');calcCursor=Math.max(0,Math.min(calcCursor,BASE_R3_CALC_EXPR.length))}
+  window.dbd20CalcMove=function(delta){calcCursor=Math.max(0,Math.min(calcExpr().length,calcCursor+delta));render()};
+  window.dbd20UseCalcAnswer=function(){
+    const q=currentQuestion(),r=currentResponse();if(!q||!r||q.type==='essay'||isMCQ(q)||isMultiSelect(q)||r.locked)return;
+    const n=baseR3EvalCalc();if(n===null)return;
+    r.draft=String(n);save();render();
+  };
+  window.dbd20SetCalcExpression=function(v,pos){setCalcExpr(v);calcCursor=Number.isFinite(pos)?pos:calcExpr().length;render()};
+
+  baseR3ToggleCalc=function(){
+    if(BASE_R3_CALC_OPEN&&typeof baseR5RecordCalcSnapshot==='function')baseR5RecordCalcSnapshot('close');
+    BASE_R3_CALC_OPEN=!BASE_R3_CALC_OPEN;calcCursor=calcExpr().length;
+    if(BASE_R3_CALC_OPEN){const r=currentResponse();if(r){r.calculatorUsed=true;r.calculatorOpenCount=Number(r.calculatorOpenCount||0)+1;if(typeof baseR5EnsureCalcHistory==='function')baseR5EnsureCalcHistory(r);save()}}
+    render();
+  };
+
+  baseR3CalcPress=function(v){
+    let e=calcExpr();
+    if(v==='AC'){e='';calcCursor=0}
+    else if(v==='⌫'){if(calcCursor>0){e=e.slice(0,calcCursor-1)+e.slice(calcCursor);calcCursor--}}
+    else if(v==='←'){calcCursor=Math.max(0,calcCursor-1)}
+    else if(v==='→'){calcCursor=Math.min(e.length,calcCursor+1)}
+    else if(v==='='){
+      const expression=e.trim(),n=baseR3EvalCalc();
+      if(expression&&n!==null){const r=currentResponse();if(r){r.calculatorUsed=true;if(typeof baseR5EnsureCalcHistory==='function'){const h=baseR5EnsureCalcHistory(r),result=String(n),last=h[h.length-1];if(!(last&&last.expression===expression&&String(last.result)===result))h.push({expression,result,reason:'equals',at:new Date().toISOString()});save()}}}
+      e=n===null?'Error':String(n);calcCursor=e.length;
+    }else{
+      if(e==='Error'){e='';calcCursor=0}
+      e=e.slice(0,calcCursor)+String(v)+e.slice(calcCursor);calcCursor+=String(v).length;
+    }
+    setCalcExpr(e);render();
+  };
+
+  baseR3CalculatorPanel=function(){
+    if(!BASE_R3_CALC_OPEN)return'';
+    const e=calcExpr(),preview=baseR3EvalCalc(),before=esc(e.slice(0,calcCursor)||''),after=esc(e.slice(calcCursor)||'');
+    const keys=['AC','⌫','(',')','7','8','9','÷','4','5','6','×','1','2','3','-','0','.','%','+'];
+    const q=currentQuestion(),canUse=q&&!q.choices&&q.type!=='essay';
+    return `<div class="base-r3-calculator dbd20-calculator"><div class="base-r3-calc-head"><strong>CALCULATOR</strong><button onclick="baseR3ToggleCalc()" aria-label="Close calculator">×</button></div><div class="dbd20-calc-editor" aria-label="Calculator expression"><span>${before}</span><i></i><span>${after}</span></div><div class="base-r3-calc-preview">${preview!==null&&e.trim()?`= ${esc(String(preview))}`:''}</div><div class="dbd20-calc-nav"><button onclick="baseR3CalcPress('←')">←</button><button onclick="baseR3CalcPress('→')">→</button>${canUse?`<button class="use-answer" onclick="dbd20UseCalcAnswer()">USE ANSWER</button>`:''}</div><div class="base-r3-calc-grid">${keys.map(k=>`<button class="${['÷','×','-','+'].includes(k)?'operator':''}" onclick='baseR3CalcPress(${JSON.stringify(k)})'>${esc(k)}</button>`).join('')}<button class="equals" onclick="baseR3CalcPress('=')">=</button></div></div>`;
+  };
+
+  /* ---------- navigation: reversible navigation, irreversible grading ---------- */
+  function saveCurrentForEndFeedback(){
+    const a=active(),q=currentQuestion(),r=currentResponse();if(!a||!q||!r||a.setupSnapshot.feedback!=='end'||r.locked)return;
+    if(isMultiSelect(q)){
+      if(Array.isArray(r.answer)&&r.answer.length){r.status='answered';r.correct=calculateCorrect(q,r)}
+    }else if(isMCQ(q)){
+      if(r.answer!==null&&r.answer!==''){r.status='answered';r.correct=calculateCorrect(q,r)}
+    }else if(q.type==='essay'){
+      if(String(r.draft||r.answer||'').trim()){r.answer=String(r.draft||r.answer||'').trim();r.status='answered'}
+    }else if(String(r.draft||r.answer||'').trim()){
+      r.answer=String(r.draft||r.answer||'').trim();r.status='answered';r.correct=calculateCorrect(q,r);
+    }
+    save();
+  }
+  window.dbd20QuestionPrev=function(){const a=active();if(!a||a.mode==='flashcards')return;saveCurrentForEndFeedback();if(a.currentIndex>0)goToQuestion(a.currentIndex-1)};
+  window.dbd20QuestionNext=function(){const a=active();if(!a||a.mode==='flashcards')return;saveCurrentForEndFeedback();if(a.currentIndex<a.packet.questions.length-1)goToQuestion(a.currentIndex+1);else route('review')};
+
+  function contextBadge(q){return q.contextLabel?`<div class="dbd20-context-label">${esc(q.contextLabel)}</div>`:''}
+  function multiAnswerText(a){return (Array.isArray(a)?a:[]).join(', ')||'—'}
+  function feedbackFinal(q,r){
+    if(!r.revealed)return'';
+    if(q.type==='essay')return feedbackBlock(q,r);
+    const correct=r.correct===true,answer=isMultiSelect(q)?multiAnswerText(q.answer):String(q.answer??'—');
+    return `<div class="feedback ${correct?'correct':'wrong'}"><span class="feedback-tag">${r.timedOut?'Timed out':correct?'Correct':'Wrong'}</span><p><strong>Correct answer:</strong> ${esc(answer)}</p>${q.explanation?`<p class="muted">${esc(q.explanation)}</p>`:''}</div>`;
+  }
+
+  /* ---------- question drill renderer ---------- */
+  function renderQuestionDrillFinal(){
+    const a=active();if(!a)return `<div class="empty">No active drill.</div>`;
+    const q=currentQuestion(),r=currentResponse(),total=a.packet.questions.length,editable=responseEditable(a,r),showTimer=a.setupSnapshot.timing!=='off'&&a.setupSnapshot.showTimer,done=completedCount(a),left=Math.max(0,total-done),commentOpen=commentIsOpen();
+    let questionInput='';
+
+    if(isMultiSelect(q)){
+      const selected=new Set(Array.isArray(r.answer)?r.answer:[]);
+      questionInput=`<div class="choices dbd20-multi">${Object.entries(q.choices||{}).map(([k,v])=>{
+        let c='answer-option-shell';if(selected.has(k))c+=' selected';if(r.revealed&&(q.answer||[]).map(norm).includes(norm(k)))c+=' correct';else if(r.revealed&&selected.has(k)&&!r.correct)c+=' wrong';
+        return `<div class="${c}"><button class="answer-main" ${editable?'':'disabled'} onclick="setMultiChoice('${esc(k)}')"><span class="dbd20-checkbox">${selected.has(k)?'✓':''}</span><strong>${esc(k)}.</strong> ${esc(v)}</button></div>`;
+      }).join('')}</div>${!r.locked?`<button class="button primary dbd20-check" ${selected.size?'':'disabled'} onclick="submitAnswer()">${a.setupSnapshot.feedback==='end'?'SAVE & NEXT':'CHECK ANSWERS'}</button>`:''}`;
+    }else if(isMCQ(q)){
+      questionInput=`<div class="choices">${Object.entries(q.choices).map(([k,v])=>{
+        let c='answer-option-shell';if(r.answer===k)c+=' selected';if(r.revealed&&norm(k)===norm(q.answer))c+=' correct';else if(r.revealed&&r.answer===k&&!r.correct)c+=' wrong';
+        const selected=r.answer===k;
+        return `<div class="${c}"><button class="answer-main" ${editable?'':'disabled'} onclick="setChoice('${esc(k)}')"><strong>${esc(k)}.</strong> ${esc(v)}</button>${selected&&!r.revealed&&a.setupSnapshot.feedback==='immediate'?`<button class="answer-inline-action" onclick="submitAnswer()">CHECK →</button>`:''}</div>`;
+      }).join('')}</div>`;
+    }else if(q.type==='essay'){
+      const can=String(r.draft||r.answer||'').trim();
+      questionInput=`<div class="field essay-field"><label>Your essay answer</label><textarea id="essay-answer" ${editable?'':'disabled'} oninput="setDraft(this.value)" placeholder="Write your response here...">${esc(r.draft||r.answer||'')}</textarea></div>${!r.locked&&a.setupSnapshot.feedback==='immediate'?`<button class="button primary typed-submit" ${can?'':'disabled'} onclick="submitAnswer()">SUBMIT ESSAY</button>`:''}`;
+    }else{
+      const can=String(r.draft||r.answer||'').trim();
+      questionInput=r.revealed?`<div class="field typed-field"><label>Your final answer</label>${baseR3TypedAnswerShell(r,total,a.currentIndex)}</div>`:`<div class="field typed-field"><label>Your final answer</label><input id="typed-answer" ${baseNumericInputAttrs(q)} value="${esc(r.draft||r.answer||'')}" ${editable?'':'disabled'} oninput="setDraft(this.value)" placeholder="${q.type==='numeric'?'Type a number':'Type the final answer here'}"></div>${!r.locked&&a.setupSnapshot.feedback==='immediate'?`<button class="button primary typed-submit" ${can?'':'disabled'} onclick="submitAnswer()">SUBMIT ANSWER</button>`:''}`;
+    }
+
+    const feedback=feedbackFinal(q,r),controls=finalControlBar(q,r,commentOpen),wrongRevealed=r.revealed&&r.correct===false;
+    return `<div class="drill-shell dbd20-question-drill"><div class="drill-progress-row"><button class="progress-shell" onclick="navigatorOpen=true;render()" aria-label="Open question navigator"><div class="progress-track"><div class="progress-fill" style="width:${done/Math.max(total,1)*100}%"></div></div><div class="progress-meta"><span>Q${a.currentIndex+1} / ${total}</span><span>${left} left</span></div></button><button class="pause-square" onclick="pause()" aria-label="Pause drill">Ⅱ</button></div><section class="panel question-panel"><div class="question-core">${showTimer?`<div class="timer" id="timer">${a.setupSnapshot.timing==='ai'?fmt(Math.max(0,(q.timeLimitSeconds||0)-elapsedCurrent())):fmt(elapsedCurrent())}</div>`:''}${contextBadge(q)}${stimulusHTML(q.stimulus)}<div class="question-text">${esc(q.prompt)}</div>${questionInput}${r.revealed?feedback:''}${wrongRevealed&&q.type!=='essay'?baseR3ErrorClassifier(r):''}${finalControlBar(q,r,commentOpen)}<div class="dbd20-question-nav"><button class="button" onclick="dbd20QuestionPrev()" ${a.currentIndex===0?'disabled':''}>← PREVIOUS</button><span>Q${a.currentIndex+1}/${total}</span><button class="button" onclick="dbd20QuestionNext()">${a.currentIndex===total-1?'REVIEW':'NEXT →'}</button></div></div></section>${a.paused?`<div class="pause-overlay"><div class="pause-card"><div class="eyebrow">Paused</div><h1 style="font-size:2rem">Timer stopped.</h1><p class="muted">The question is hidden while the drill is paused.</p><button class="button primary block" onclick="resume()">RESUME</button><button class="button block" style="margin-top:8px" onclick="exitDrill()">SAVE & RETURN HOME</button></div></div>`:''}</div>${navigatorOverlay()}`;
+  }
+
+  /* ---------- rich flashcards: text + table + sanitized SVG ---------- */
+  function cardCurrent(a){const f=a?.flash;if(!f||f.phase!=='cards')return null;return a.packet.cards[f.queue[f.index]]||null}
+  function cardAttempt(a){const f=a?.flash;if(!f||f.phase!=='cards')return null;return f.roundMap?.[String(f.queue[f.index])]||null}
+  function renderCardSide(label,text,stimulus){
+    return `<div class="dbd20-card-side"><div class="flash-front-label">${label}</div>${stimulus?`<div class="dbd20-card-stimulus">${stimulusHTML(stimulus)}</div>`:''}${String(text||'').trim()?`<div class="${label==='Front'?'flash-front':'dbd20-card-back-text'}">${esc(text)}</div>`:''}</div>`;
+  }
+  function renderFlashDrillFinal(a){
+    const f=a.flash;
+    if(f.phase==='round_end'){
+      const rs=f.roundSummaries[f.roundSummaries.length-1]||{known:0,missed:0,queue:f.queue||[]};
+      const missed=(rs.queue||[]).filter(idx=>f.roundMap[String(idx)]?.rating==='missed');
+      return `<section class="flash-shell"><div class="flash-round-end"><div class="eyebrow">Flashcard Recall</div><h1 style="font-size:2rem">Round ${f.round} complete.</h1><p class="flash-summary-caption">${esc(a.packet.subject)} · ${esc(a.packet.topic||a.packet.title||'Recall')}</p><div class="flash-end-stats"><div class="flash-end-stat"><strong>${rs.known}</strong><span>Knew</span></div><div class="flash-end-stat"><strong>${rs.missed}</strong><span>Missed</span></div><div class="flash-end-stat"><strong>${f.totalCards}</strong><span>Total deck</span></div></div>${missed.length?`<div class="flash-list">${missed.slice(0,8).map(idx=>`<div class="flash-list-item"><strong>${esc(a.packet.cards[idx]?.front||'Visual card')}</strong><small>${esc(a.packet.cards[idx]?.type||'')}</small></div>`).join('')}${missed.length>8?`<div class="note">+ ${missed.length-8} more missed card(s)</div>`:''}</div>`:`<div class="message success">All cards in this round were marked Knew.</div>`}<div class="flash-end-actions"><button class="button primary" ${rs.missed?'':'disabled'} onclick="flashStartRound('missed')">REVIEW MISSED</button><button class="button" onclick="flashStartRound('all')">REVIEW ALL AGAIN</button><button class="button" onclick="flashFinish()">FINISH SESSION</button></div></div></section>`;
+    }
+    const card=cardCurrent(a),attempt=cardAttempt(a),num=f.index+1,total=f.queue.length,progress=(num-1)/Math.max(total,1)*100;
+    return `<section class="flash-shell"><div class="flash-wrap"><div class="flash-top"><div><div class="flash-round">Flashcard Recall · round ${f.round}</div><div class="flash-meta">${esc(a.packet.subject)}${a.packet.topic?` · ${esc(a.packet.topic)}`:''}<br>${num} / ${total} in this round</div></div>${attempt?`<div class="flash-chip ${attempt.rating==='known'?'active':''}">${attempt.rating.toUpperCase()}</div>`:''}</div><div class="flash-progress"><span style="width:${progress}%"></span></div><div class="flash-card ${f.revealed?'':'tap-ready'}" onclick="if(!${f.revealed?'true':'false'})flashReveal()">${renderCardSide('Front',card?.front,card?.frontStimulus)}${f.revealed?`<div class="dbd20-card-divider"></div>${renderCardSide('Back',card?.back,card?.backStimulus)}${card?.explanation?`<div class="flash-note">${esc(card.explanation)}</div>`:''}`:`<button class="button flash-reveal" onclick="event.stopPropagation();flashReveal()">REVEAL</button>`}</div><div class="flash-nav"><div class="left"><button class="button small" onclick="flashPrevious()" ${f.index===0?'disabled':''}>← PREVIOUS</button><button class="button small" onclick="route('home')">EXIT</button></div></div>${f.revealed?`<div class="flash-actions"><button class="button miss" onclick="flashRate('missed')">× MISSED</button><button class="button primary" onclick="flashRate('known')">✓ KNEW</button></div>`:''}</div></section>`;
+  }
+
+  drill=function(){const a=active();if(isFlashSessionFinal(a))return renderFlashDrillFinal(a);return renderQuestionDrillFinal()};
+
+  /* Flashcard finish: card ratings are not "questions answered". */
+  window.flashFinish=function(){
+    const a=active();if(!isFlashSessionFinal(a))return;
+    const f=a.flash,cards=a.packet.cards||[],latest=f.latestState||{};
+    const unresolved=Object.keys(latest).filter(k=>latest[k]==='missed').map(Number).sort((x,y)=>x-y);
+    const finalKnown=Math.max(0,cards.length-unresolved.length);
+    const session={
+      id:a.id,mode:'flashcards',sessionType:'flashcards',completedAt:new Date().toISOString(),campaign:a.packet.campaign,subject:a.packet.subject,topic:a.packet.topic,title:a.packet.title,source:a.packet.source,
+      totalCards:cards.length,totalQuestions:0,answered:0,correct:0,wrong:0,unanswered:0,accuracy:cards.length?finalKnown/cards.length*100:0,
+      totalTime:Math.round((f.history||[]).reduce((n,h)=>n+Number(h.responseTimeMs||0),0)/1000),rounds:(f.roundSummaries||[]).length,firstPassKnown:f.firstPassKnown,firstPassMissed:f.firstPassMissed,finalKnown,finalUnresolved:unresolved.length,
+      missedCards:unresolved.map(i=>({card_id:cards[i]?.id,front:cards[i]?.front,back:cards[i]?.back,type:cards[i]?.type,tags:cards[i]?.tags||[],front_stimulus:cards[i]?.frontStimulus||null,back_stimulus:cards[i]?.backStimulus||null})),
+      cardHistory:(f.history||[]).map(h=>({round:h.round,rating:h.rating,response_time_ms:h.responseTimeMs,changed:h.changed,card_id:cards[h.cardIndex]?.id,front:cards[h.cardIndex]?.front,back:cards[h.cardIndex]?.back,type:cards[h.cardIndex]?.type,tags:cards[h.cardIndex]?.tags||[]})),
+      _cards:cards
+    };
+    DATA.completedSessions.unshift(session);DATA.completedSessions=DATA.completedSessions.slice(0,200);DATA.activeSessions=DATA.activeSessions.filter(x=>x.id!==a.id);DATA.currentActiveId=DATA.activeSessions[0]?.id||null;currentSessionId=session.id;save();route('summary');
+  };
+
+  /* ---------- evidence export ---------- */
+  const OLD_ATTEMPT_FINAL=attemptFrom;
+  attemptFrom=function(q,r){
+    const out=OLD_ATTEMPT_FINAL(q,r);
+    out.productComment=String(r.productComment||'');
+    out.contextLabel=q.contextLabel||'';
+    out.prerequisites=q.prerequisites||[];
+    if(isMultiSelect(q)){out.selected=Array.isArray(r.answer)?[...r.answer]:[];out.answer=Array.isArray(q.answer)?[...q.answer]:[]}
+    return out;
+  };
+
+  function finalTagStats(s){
+    const m=new Map();for(const a of s.attempts||[]){for(const t of a.tags||[]){const x=m.get(t)||{total:0,correct:0};x.total++;if(a.correct)x.correct++;m.set(t,x)}}return [...m.entries()].filter(([,v])=>v.total>=2).sort((a,b)=>a[1].correct/a[1].total-b[1].correct/b[1].total);
+  }
+  function choicesText(a){
+    if(!a.choices||!Object.keys(a.choices).length)return'';
+    return `\n${Object.entries(a.choices).map(([k,v])=>`  ${k}. ${v}`).join('\n')}`;
+  }
+  liteResultsText=function(s){
+    const c=confidenceStats(s),errs=errorStats(s),total=s.totalQuestions||s.attempts?.length||0;
+    return `# DBD Base 2.0 Results\n\n**Subject:** ${s.subject}\n**Topic:** ${s.topic||'—'}\n**Source:** ${s.source||'—'}\n**Drill type:** ${sessionTestType(s)}\n**Questions:** ${total}\n**Correct:** ${s.correct}\n**Accuracy:** ${Math.round(s.accuracy||0)}%\n**Skipped / unanswered:** ${s.unanswered??c.unanswered}${s.totalTime===null?'':`\n**Active time:** ${fmt(s.totalTime)}`}\n\n## Confidence\n- Sure + correct: ${c.sureCorrect}\n- Not sure + correct: ${c.unsureCorrect}\n- Ngasal + correct: ${c.guessCorrect}\n- Incorrect: ${c.incorrect}\n- Skipped / unanswered: ${c.unanswered}\n\n## Error causes recorded\n${errs.length?errs.map(([e,n])=>`- ${errorLabel(e)}: ${n}`).join('\n'):'- none'}\n\n## Questions\n\n${(s.attempts||[]).map((a,i)=>`### Q${i+1}\n${a.contextLabel?`[Context: ${a.contextLabel}]\n`:''}${a.prompt}${choicesText(a)}\n\n- **Your answer:** ${Array.isArray(a.selected)?a.selected.join(', '):(a.selected||'—')}\n- **Correct / reference answer:** ${Array.isArray(a.answer)?a.answer.join(', '):(a.answer||'—')}\n- **Result:** ${a.correct?'Correct':['skipped','unseen'].includes(a.status)?'Skipped / unanswered':a.timedOut?'Timed out':'Wrong'}\n- **Confidence:** ${a.confidence||'—'}\n- **Error cause:** ${a.errorType&&a.errorType!=='unclassified'?errorLabel(a.errorType):'—'}\n- **Calculator used:** ${a.calculatorUsed?'Yes':'No'}${a.calculatorUsed?`\n- **Calculator history:**\n${baseR5CalcHistoryText(a).split('\n').map(line=>`  ${line}`).join('\n')}`:''}\n- **Tags:** ${a.tags?.join(', ')||'—'}\n- **Content comment:** ${a.comment||'—'}\n- **Explanation:** ${a.explanation||'—'}`).join('\n\n')}`;
+  };
+
+  /* ---------- safe summaries: no legacy undefined renderer ---------- */
+  function questionSummaryFinal(s){
+    const total=s.totalQuestions||s.attempts?.length||0,tags=finalTagStats(s),errs=errorStats(s);
+    return `<section class="summary-shell"><div class="score-hero"><div class="score-main">${s.correct||0}<span>/${total}</span></div><div class="score-percent">${Math.round(s.accuracy||0)}%</div><div class="score-caption">${esc(s.subject)}${s.topic?` · ${esc(s.topic)}`:''} · ${esc(sessionTestType(s))}</div></div><div class="summary-surface"><div class="report-tabs"><button class="report-tab active">SUMMARY</button><button class="report-tab" onclick="viewFullQuiz('${s.id}')">FULL QUIZ</button></div><section class="summary-section"><div class="summary-heading">Confidence</div>${confidenceVisual(s)}</section>${tags.length?`<section class="summary-section"><div class="summary-heading">Results by recurring tag</div><div class="weak-list">${tags.map(([t,v],i)=>`<div class="weak-row"><div class="weak-rank">${i+1}</div><div class="weak-name">${esc(t)}<small>${v.correct}/${v.total} correct</small></div><div class="weak-score">${v.correct}/${v.total}</div></div>`).join('')}</div></section>`:''}${errs.length?`<section class="summary-section"><div class="summary-heading">Error causes you recorded</div><div class="error-list">${errs.map(([e,n])=>`<div class="error-row"><span>${esc(errorLabel(e))}</span><strong>${n}</strong></div>`).join('')}</div></section>`:''}<div class="result-actions one"><button class="button primary" onclick="copyLiteResults('${s.id}',this)">COPY RESULTS</button></div><div class="compact-actions"><button class="button tiny" onclick="downloadJson('${s.id}')">JSON ↓</button><button class="button tiny" onclick="window.print()">PRINT / SAVE PDF</button><button class="button tiny" ${s.wrong?'':'disabled'} onclick="retrySession('${s.id}')">RETRY WRONG</button></div></div></section>`;
+  }
+  function flashSummaryFinal(s){
+    return `<section class="summary-shell"><div class="score-hero"><div class="flash-mode-badge">Flashcard Recall</div><div class="score-main">${s.finalKnown||0}<span>/${s.totalCards||0}</span></div><div class="score-percent">${Math.round(s.accuracy||0)}% resolved by session end</div><div class="score-caption">${esc(s.subject)}${s.topic?` · ${esc(s.topic)}`:''}</div></div><div class="summary-surface"><section class="summary-section"><div class="summary-heading">Recall evidence</div><div class="flash-summary-grid"><div class="flash-summary-card"><strong>${s.firstPassKnown||0}</strong><span>First-pass knew</span></div><div class="flash-summary-card"><strong>${s.firstPassMissed||0}</strong><span>First-pass missed</span></div><div class="flash-summary-card"><strong>${s.finalUnresolved||0}</strong><span>Final unresolved</span></div><div class="flash-summary-card"><strong>${s.rounds||1}</strong><span>Rounds</span></div></div></section><section class="summary-section"><div class="summary-heading">Unresolved cards</div>${s.missedCards?.length?`<div class="flash-summary-list">${s.missedCards.map(c=>`<div class="flash-list-item"><strong>${esc(c.front||'Visual card')}</strong><small>${esc(c.back||c.type||'')}</small></div>`).join('')}</div>`:`<div class="message success">No unresolved cards.</div>`}</section><div class="result-actions one"><button class="button primary" onclick="copyText(JSON.stringify(getSession('${s.id}'),null,2),this,true)">COPY RESULTS JSON</button></div><div class="compact-actions"><button class="button tiny" onclick="downloadJson('${s.id}')">JSON ↓</button><button class="button tiny" onclick="window.print()">PRINT / SAVE PDF</button></div></div></section>`;
+  }
+  summary=function(){const s=getSession(currentSessionId)||DATA.completedSessions[0];if(!s)return `<div class="empty">No completed session.</div>`;return s.mode==='flashcards'?flashSummaryFinal(s):questionSummaryFinal(s)};
+
+  /* ---------- history: only real inspectable sessions ---------- */
+  history=function(){
+    const sessions=(DATA.completedSessions||[]).slice().sort((a,b)=>new Date(b.completedAt)-new Date(a.completedAt));let last='',body='';
+    for(const s of sessions){
+      const day=historyDateLabel(s.completedAt);if(day!==last){body+=`<div class="dev2-history-date">${esc(day)}</div>`;last=day}
+      const recall=s.mode==='flashcards',total=recall?(s.totalCards||0):(s.totalQuestions||s.attempts?.length||0),score=recall?`${s.finalKnown||0}/${total}`:`${s.correct||0}/${total}`,meta=recall?`Flashcard Recall · ${s.rounds||1} round${(s.rounds||1)>1?'s':''}`:`${esc(sessionTestType(s))} · ${fmt(s.totalTime)}`,open=BASE_R5_HISTORY_MENU===s.id;
+      body+=`<div class="dev2-section base-r5-history-section"><div class="dev2-history-row session base-r5-history-main" onclick="viewSession('${s.id}')"><div><strong>${esc(s.subject)} · ${esc(s.topic||s.title||(recall?'Recall':'Drill'))}</strong><small>${meta}</small></div><div class="base-r5-history-side"><div class="dev2-history-score"><strong>${score}</strong><small>${recall?'RECALL':'DRILL'}</small></div><button class="base-r5-more" onclick="baseR5ToggleHistoryMenu('${s.id}',event)" aria-label="Session actions">•••</button></div></div>${open?`<div class="base-r5-history-menu"><button onclick="viewSession('${s.id}')">OPEN</button><button onclick="downloadSessionHistory('${s.id}')">EXPORT JSON</button><button class="danger" onclick="deleteCompletedSession('${s.id}')">DELETE</button></div>`:''}</div>`;
+    }
+    return `<section class="dev2-page"><div class="dev2-page-head"><div><div class="eyebrow">Recorded work</div><h1>History</h1><p>Completed, inspectable Base sessions. Legacy Stream experiments remain preserved in the Vault, not mixed into this timeline.</p></div></div>${body||'<div class="empty">No completed sessions yet.</div>'}</section>`;
+  };
+
+  /* ---------- Settings / human-facing schema ---------- */
+  dataView=function(){
+    const bytes=new Blob([JSON.stringify(DATA)]).size,size=bytes<1048576?`${(bytes/1024).toFixed(1)} KB`:`${(bytes/1048576).toFixed(2)} MB`,legacyBank=(DATA.questionBank||[]).length,legacyAttempts=(DATA.streamEngine?.attempts||[]).length,records=baseSubjectRecords();
+    return `<section class="dev2-page"><div class="dev2-page-head"><div><div class="eyebrow">${FINAL_PRODUCT} · ${FINAL_BUILD}</div><h1>Settings</h1><p>DBD Base Vault v1. The older numeric Schema 7 field is retained only as an internal migration compatibility marker.</p></div></div><div class="settings-group"><div class="settings-title">Appearance</div>${baseR3AppearanceControl()}</div><div class="settings-group"><div class="settings-title">Base model</div><div class="metric-row"><span>Product</span><strong>${FINAL_PRODUCT}</strong></div><div class="metric-row"><span>Build</span><strong>${FINAL_BUILD}</strong></div><div class="metric-row"><span>Vault format</span><strong>DBD Base Vault v1</strong></div><div class="metric-row"><span>Execution modes</span><strong>Question Drill · Flashcard Recall</strong></div><div class="metric-row"><span>Canonical subjects</span><strong>${records.length}</strong></div></div><div class="settings-group"><div class="settings-title">Renderer capabilities</div><div class="metric-row"><span>Question surfaces</span><strong>MCQ · multi-select · numeric · short · essay</strong></div><div class="metric-row"><span>Flashcard surfaces</span><strong>text · table · sanitized SVG on front/back</strong></div><div class="metric-row"><span>Question stimuli</span><strong>text · table · sanitized SVG</strong></div><div class="metric-row"><span>Evidence tools</span><strong>confidence · calculator trail · comments · flags · resume</strong></div></div><div class="settings-group"><div class="settings-title">DBD Vault</div><p class="note">Ordinary JSON remains the canonical backup. DBD Compact is a lossless transport wrapper.</p><div class="data-actions base-r5-vault-actions"><button class="button primary" onclick="exportVault()">EXPORT VAULT</button><button class="button" onclick="copyCompactVault(this)">COPY COMPRESSED</button><button class="button tiny" onclick="downloadCompactVault(this)">COMPRESSED FILE ↓</button><button class="button" onclick="mergeVault()">MERGE VAULT</button></div><details class="validation-details base-r5-compact-vault"><summary>Paste compressed Vault</summary><div><textarea id="compact-vault-input" class="code-input" placeholder="Paste DBDC1.GZ.… here."></textarea><div class="actions"><button class="button primary" onclick="importCompactVault('merge')">MERGE COMPRESSED</button><button class="button danger" onclick="importCompactVault('replace')">REPLACE WITH COMPRESSED</button></div></div></details></div><div class="settings-group"><div class="settings-title">Legacy archive</div><div class="lite-legacy-note"><strong>${legacyBank} old Question Bank records</strong> and <strong>${legacyAttempts} experimental Stream attempts</strong> remain preserved for compatibility/history. They are not normal Base History sessions and Base does not schedule them.</div></div><div class="settings-group"><div class="settings-title">Storage</div><div class="metric-row"><span>Approx. local data</span><strong>${size}</strong></div></div></section>`;
+  };
+
+  /* ---------- build metadata without destroying legacy migration marker ---------- */
+  DATA.product=FINAL_PRODUCT;DATA.baseVersion='2.0';DATA.buildId=FINAL_BUILD;DATA.baseVaultVersion=1;DATA.schemaLabel='DBD Base Vault v1';
+  save();
+  render();
+})();
+/* ================= END DBD BASE 2.0 FINAL ================= */
+
+/* Final preflight composition: recognizes multi-select and keeps launch settings minimal. */
+(function(){
+  const OLD_PREFLIGHT_FINAL=preflight;
+  preflight=function(){
+    const pp=DATA.pendingPacket;
+    if(!pp)return `<div class="empty">No package is waiting.</div>`;
+    if(isFlashPacketFinalCompat(pp.packet))return OLD_PREFLIGHT_FINAL();
+    const v=pp.validation,p=pp.packet;
+    const composition=[v.mcq?`${v.mcq} MCQ`:'',v.multi?`${v.multi} multi-select`:'',v.typed?`${v.typed} typed`:''].filter(Boolean).join(' · ')||'questions';
+    return `<div class="preflight-backdrop"><div class="preflight-card"><div class="preflight-kicker">Question package</div><div class="preflight-title"><h1>READY TO<br>LAUNCH</h1><p class="muted">${esc(pp.sourceName)}</p></div><div class="manifest"><div class="manifest-item"><span>Subject</span><strong>${esc(p.subject)}</strong></div><div class="manifest-item"><span>Topic</span><strong>${esc(p.topic||'Unspecified')}</strong></div><div class="manifest-item"><span>Questions</span><strong>${p.questions.length}</strong></div><div class="manifest-item"><span>Composition</span><strong>${esc(composition)}</strong></div></div>${preflightSettings()}${v.errors.length?`<h3>Blocking errors</h3><ul class="check-list error">${v.errors.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:''}${v.warnings.length?`<details class="validation-details"><summary>Warnings (${v.warnings.length})</summary><div><ul class="check-list warning">${v.warnings.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div></details>`:''}<details class="validation-details"><summary>Validation details</summary><div><ul class="check-list ok"><li>Question structure and answer references were checked.</li><li>Text, table and sanitized SVG stimuli are supported.</li><li>Confidence: ${p.confidenceMode==='off'?'off for this packet':'optional and unset until selected'}.</li></ul></div></details><div class="preflight-actions"><button class="button primary" ${v.errors.length?'disabled':''} onclick="launchPacket()">START DRILL</button><button class="button ghost" onclick="cancelPending()">CANCEL</button></div></div></div>`;
+  };
+  function isFlashPacketFinalCompat(p){return !!p&&(p.packetType==='flashcards'||Array.isArray(p.cards));}
+  render();
+})();

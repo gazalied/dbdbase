@@ -3,72 +3,135 @@
 ## Institutional boundary
 
 **Subject Chat / teacher / tutor = semantic authority.**
-It understands materials, decides what deserves practice, teaches, diagnoses mistakes and authors trustworthy packets.
+It understands material, decides scope, teaches, diagnoses mistakes and authors trustworthy practice.
 
 **DBD Base = execution + evidence.**
 It renders, runs, resumes, times, records and exports.
 
 > Score is evidence, not diagnosis.
 
-## Choose the execution surface
+## Two execution surfaces
 
 ### Question Drill
-Use for procedures, calculations, application, misconceptions, interpretation, mixed testing and transfer.
+Use for procedure, calculation, method choice, misconception testing, application, interpretation, mixed testing and transfer.
+
+Supported types:
+- `mcq`
+- `multi_select`
+- `numeric`
+- `short`
+- `essay`
+
+`multi_select` uses an answer array and exact-set grading.
 
 ### Flashcard Recall
-Use for atomic retrieval: terminology, definitions, classifications, named theories, reverse recognition, short causal chains, formulas, symbol meanings and rules.
+Use for atomic retrieval: terms, definitions, classifications, theories, reverse recognition, short causal chains, formulas/rules, symbol meanings and compact visual identification.
 
-Do not use Flashcard Recall as a replacement for integrated problem solving.
+Runtime is deliberately simple:
 
-## Flashcard authoring rules
+`front → reveal → KNEW / MISSED`
 
-- One card should test one compact retrievable object.
-- Front should be unambiguous without unnecessary prose.
-- Back should be the minimal trustworthy answer needed to judge retrieval.
-- `type` is descriptive metadata, not a separate UI.
-- Do not generate SRS scheduling fields, due dates, ease factors or intervals.
-- Human-facing tags are allowed.
-- Source should identify the actual basis when available.
+Do not generate SRS schedules, due dates, ease factors, XP, streaks or autonomous repair logic.
 
-Packet:
+## Shared representation grammar
+
+Both questions and flashcards can use:
+
+### Plain text
+Use when prose/equations are sufficient.
+
+### Native table
+
+```json
+{
+  "type": "table",
+  "title": "Data",
+  "columns": ["Variable", "Value"],
+  "rows": [["m", "100 g"], ["c", "4 J g⁻¹ °C⁻¹"]]
+}
+```
+
+### Sanitized SVG
+Use for spatial/structural information: geometry, graphs, vectors, maps/schematics, chemical structures, symbols.
+
+Use semantic classes rather than hard-coded colors:
+
+- `svg-main-line`
+- `svg-accent-line`
+- `svg-muted-line`
+- `svg-secondary-line`
+- `svg-danger-line`
+- `svg-success-line`
+- `svg-label`
+- `svg-accent-label`
+- corresponding secondary/danger/success label/fill variants
+
+No scripts, event handlers, `foreignObject`, remote resources or external links.
+
+## Flashcard schema
 
 ```json
 {
   "packet_type": "flashcards",
+  "dbd_version": "DBD Base 2.0",
   "title": "...",
   "subject": "...",
   "topic": "...",
   "source": "...",
-  "cards": []
+  "cards": [
+    {
+      "id": "...",
+      "topic": "...",
+      "subtopic": "...",
+      "type": "TERM",
+      "front": "...",
+      "back": "...",
+      "front_stimulus": null,
+      "back_stimulus": null,
+      "priority": "core",
+      "source": "...",
+      "tags": ["..."]
+    }
+  ]
 }
 ```
 
-Card:
+`front_stimulus` and `back_stimulus` use exactly the same text/table/SVG renderer as question stimuli.
+
+## Question authoring validation
+
+Before export, silently validate the complete set. Do not show private reasoning.
+
+Check when applicable:
+
+- internal consistency;
+- solvability;
+- sufficient data;
+- answer uniqueness;
+- correct units and signs;
+- correct canonical answer;
+- useful answer alternatives/tolerance;
+- balanced chemical equations;
+- Hess target constructibility;
+- diagram labels not clipped or placed on top of strokes;
+- table data aligned and readable.
+
+Do not allow a broken generated question to masquerade as learner failure.
+
+## Evidence-aware metadata
+
+Optional `context_label` can establish broad scope without giving away the answer strategy.
+
+A packet may set:
 
 ```json
-{
-  "id": "...",
-  "topic": "...",
-  "subtopic": "...",
-  "type": "TERM",
-  "front": "...",
-  "back": "...",
-  "priority": "core",
-  "source": "...",
-  "tags": ["..."]
-}
+"confidence": "off"
 ```
 
-## Question authoring rules
-
-- Use the existing DBD Base question format.
-- Prefer native tables for aligned/comparable data.
-- Use sanitized SVG only when spatial/structural information matters.
-- Use plain text when that is clearest.
-- Audit STEM questions for solvability, sufficient data, answer uniqueness, signs/units and domain-specific consistency.
-- For Chemistry, explicitly verify equation balance and Hess constructibility when applicable.
-- Full MCQ choices should remain meaningful because Results may be audited upstream.
+when confidence collection would add friction or contaminate a pretest.
 
 ## Output
 
-Return valid JSON only, or a downloadable JSON file for large packets. DBD Compact may be used only when the exact lossless transport encoding is actually produced.
+Return valid JSON, or attach a `.json` file for a large packet/deck.
+
+DBD Compact may be used only when the exact lossless encoding is actually produced. Never invent compressed strings.

@@ -2580,3 +2580,129 @@ html[data-theme="light"] .base-r5-history-menu{border-color:rgba(91,84,71,.10)!i
 }
 
 /* ================= END DBD BASE v1.0 r5 ================= */
+
+/* =====================================================================
+   DBD BASE 2.0 FINAL — compact canonical UI
+   ===================================================================== */
+
+/* Visual density back toward the compact 0.9.2-era feel. */
+.topbar{max-width:820px!important;padding:8px 14px!important}
+.brand strong{font-size:1.55rem!important}
+.brand span,.base-sup{font-size:.58rem!important}
+nav{gap:6px!important}
+nav button,.nav-gear-dev2{min-height:42px!important;padding:8px 12px!important;border-radius:12px!important;font-size:.68rem!important}
+main{max-width:820px!important;padding:14px 12px calc(72px + var(--safe-bottom))!important}
+.dev2-page,.lite-home,.summary-shell,.base-r5-import,.flash-shell,.drill-shell{max-width:760px!important;margin-inline:auto!important}
+.question-panel{max-width:760px!important;margin-inline:auto!important}
+.lite-home-hero{padding:18px!important;border-radius:18px!important}
+.lite-home-hero h1{font-size:clamp(2rem,7vw,3rem)!important;margin-bottom:0!important}
+.lite-stat-strip{gap:8px!important;margin-top:12px!important}
+.lite-stat{padding:11px 12px!important;border-radius:13px!important}
+.lite-stat strong{font-size:1.65rem!important}
+.lite-stat span{font-size:.65rem!important}
+.button{border-radius:12px!important}
+
+/* Home 2.0: two clear lanes, no explanatory note. */
+.dbd20-mode-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}
+.dbd20-mode-card{padding:14px;background:var(--panel);border:1px solid var(--line);border-radius:15px}
+.dbd20-mode-card h2{font-size:1.25rem;margin:3px 0 11px}
+.dbd20-mode-kicker{font-size:.64rem;font-weight:900;letter-spacing:.105em;color:var(--yellow)}
+.dbd20-mode-actions{display:grid;gap:7px}
+.dbd20-mode-actions .button{min-height:48px;font-size:.76rem;padding:9px 10px}
+
+/* Remove old r5 explanatory block if stale markup ever survives. */
+.base-r5-home-note{display:none!important}
+
+/* Question navigation. */
+.dbd20-question-nav{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center;margin-top:14px;padding-top:12px;border-top:1px solid color-mix(in srgb,var(--muted) 18%,transparent)}
+.dbd20-question-nav .button{min-height:42px;font-size:.7rem}
+.dbd20-question-nav .button:last-child{justify-self:stretch}
+.dbd20-question-nav span{color:var(--muted);font-size:.68rem;font-weight:850;white-space:nowrap}
+.dbd20-context-label{display:inline-flex;align-items:center;margin-bottom:9px;padding:5px 8px;border-radius:999px;border:1px solid color-mix(in srgb,var(--secondary) 38%,var(--line));background:color-mix(in srgb,var(--secondary) 8%,var(--panel));color:var(--secondary);font-size:.62rem;font-weight:850;letter-spacing:.07em;text-transform:uppercase}
+
+/* Multi-select. */
+.dbd20-multi .answer-main{display:grid!important;grid-template-columns:22px auto 1fr!important;align-items:center;text-align:left}
+.dbd20-checkbox{width:18px;height:18px;border:1px solid var(--line);border-radius:5px;display:grid;place-items:center;font-size:.7rem;font-weight:900;color:#171300;background:var(--inset)}
+.dbd20-multi .selected .dbd20-checkbox{background:var(--yellow);border-color:var(--yellow)}
+.dbd20-check{margin-top:9px;width:100%;min-height:44px}
+
+/* Comments: product feedback is not academic evidence. */
+.dbd20-comment-panel{margin-top:10px;display:grid;gap:7px}
+.dbd20-comment-panel label{font-size:.61rem;font-weight:900;letter-spacing:.08em;color:var(--muted)}
+.dbd20-comment-panel label small{font-size:.57rem;font-weight:600;letter-spacing:0;text-transform:none}
+.dbd20-comment-panel textarea{width:100%;min-height:64px;padding:10px;border:1px solid var(--line);border-radius:11px;background:var(--inset);color:var(--text);font:inherit;resize:vertical}
+
+/* Calculator editor / cursor. */
+.dbd20-calculator{margin-top:10px}
+.dbd20-calc-editor{min-height:48px;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:var(--inset);color:var(--text);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:1.15rem;font-weight:750;overflow-wrap:anywhere}
+.dbd20-calc-editor i{display:inline-block;width:2px;height:1.25em;margin:0 1px -3px;background:var(--yellow);animation:dbd20blink 1s steps(1) infinite}
+@keyframes dbd20blink{50%{opacity:.25}}
+.dbd20-calc-nav{display:grid;grid-template-columns:54px 54px 1fr;gap:6px;margin:7px 0}
+.dbd20-calc-nav button{min-height:38px;border:1px solid var(--line);border-radius:9px;background:var(--inset);color:var(--text);font-weight:850}
+.dbd20-calc-nav .use-answer{background:color-mix(in srgb,var(--yellow) 15%,var(--inset));border-color:var(--yellow);color:var(--yellow)}
+
+/* Native tables: structured HTML must not inherit pre-wrap text behavior. */
+.stimulus.table{white-space:normal!important;padding:12px!important;overflow:visible!important}
+.stimulus.table .stimulus-title,.stimulus.table .stimulus-caption,.stimulus.table .stimulus-source{white-space:normal!important}
+.stimulus-table-wrap{width:100%!important;max-width:100%!important;margin:8px 0 0!important;overflow-x:auto!important;overflow-y:visible!important}
+.stimulus-table-wrap table{margin:0!important;table-layout:auto!important}
+.stimulus-table-wrap th,.stimulus-table-wrap td{white-space:normal!important;overflow:visible!important;text-overflow:clip!important}
+
+/* Subject history rows: never browser-default gray buttons. */
+.base-r5-session-row,.lite-recent-row,.lite-subject-card{appearance:none!important;background:var(--panel)!important;color:var(--text)!important;border:1px solid var(--line)!important}
+html[data-theme="light"] .base-r5-session-row,html[data-theme="light"] .lite-recent-row,html[data-theme="light"] .lite-subject-card{background:#e9e5dd!important;color:#252823!important;border-color:#c7c0b4!important}
+
+/* History overflow menu is deliberately secondary. */
+.base-r5-more{width:31px!important;height:31px!important;min-width:31px!important;padding:0!important;border-radius:999px!important;font-size:11px!important;letter-spacing:0!important;line-height:1!important;display:grid!important;place-items:center!important;background:transparent!important;border-color:color-mix(in srgb,var(--muted) 35%,transparent)!important;color:var(--muted)!important}
+.base-r5-history-side{gap:7px!important}
+.base-r5-history-menu{gap:6px!important;padding:7px 8px 9px!important}
+.base-r5-history-menu button{min-height:34px!important;font-size:.62rem!important}
+
+/* Flashcard rich rendering. */
+.flash-shell{max-width:700px!important}
+.flash-wrap{padding:15px!important;border-radius:17px!important}
+.flash-card{min-height:260px!important;padding:17px 14px!important;border-radius:16px!important}
+.dbd20-card-side{width:100%;max-width:620px;text-align:center}
+.dbd20-card-stimulus{width:100%;margin:9px auto 0}
+.dbd20-card-stimulus .stimulus{margin:0 auto!important;text-align:left}
+.dbd20-card-stimulus .stimulus.svg,.dbd20-card-stimulus .stimulus-svg-wrap{max-width:100%!important}
+.dbd20-card-stimulus svg{width:min(100%,540px)!important;max-height:300px!important;display:block!important;margin:0 auto!important}
+.dbd20-card-divider{width:100%;max-width:620px;height:1px;background:color-mix(in srgb,var(--muted) 20%,transparent);margin:17px 0}
+.dbd20-card-back-text{margin-top:8px;font-size:1.02rem;line-height:1.5;white-space:pre-wrap}
+.flash-front{font-size:clamp(1.4rem,5vw,2rem)!important;line-height:1.2!important}
+.flash-actions .button{min-height:52px!important;font-size:.82rem!important}
+.flash-nav .button{min-height:38px!important;font-size:.66rem!important}
+
+/* Compact imports. */
+.dbd20-import>p.muted{margin-top:-3px;margin-bottom:12px}
+.dbd20-import .dropzone{padding:17px!important}
+
+/* Light-mode additions. */
+html[data-theme="light"] .dbd20-mode-card,html[data-theme="light"] .flash-card,html[data-theme="light"] .flash-wrap,html[data-theme="light"] .flash-round-end{background:#e9e5dd!important;border-color:#c7c0b4!important}
+html[data-theme="light"] .dbd20-comment-panel textarea,html[data-theme="light"] .dbd20-calc-editor,html[data-theme="light"] .dbd20-calc-nav button{background:#e3dfd7!important;border-color:#c4bcaf!important;color:#272a25!important}
+html[data-theme="light"] .dbd20-card-divider{background:rgba(77,70,59,.14)!important}
+
+@media(max-width:700px){
+  .topbar{padding:7px 10px!important}.brand strong{font-size:1.42rem!important}nav button,.nav-gear-dev2{min-height:40px!important;padding:7px 10px!important;font-size:.64rem!important}
+  main{padding:12px 8px calc(70px + var(--safe-bottom))!important}
+  .lite-home-hero{padding:15px 13px!important}.lite-home-hero h1{font-size:2.35rem!important}
+  .dbd20-mode-grid{grid-template-columns:1fr;gap:8px;margin-top:13px}.dbd20-mode-card{padding:12px}.dbd20-mode-card h2{font-size:1.12rem;margin-bottom:8px}.dbd20-mode-actions{grid-template-columns:1fr 1fr;gap:6px}.dbd20-mode-actions .button{min-height:44px;font-size:.68rem;padding:8px 6px}
+  .lite-stat-strip{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}.lite-stat{padding:9px 8px!important}.lite-stat strong{font-size:1.42rem!important}.lite-stat span{font-size:.56rem!important;line-height:1.15}
+  .question-panel{padding:12px 10px!important}.question-text{font-size:1.08rem!important}.dbd20-question-nav{gap:5px}.dbd20-question-nav .button{min-height:39px;padding:7px 6px;font-size:.62rem}.dbd20-question-nav span{font-size:.6rem}
+  .flash-wrap{padding:12px!important}.flash-card{min-height:235px!important;padding:14px 10px!important}.dbd20-card-stimulus svg{max-height:230px!important}.flash-actions{gap:7px}.flash-actions .button{min-height:48px!important;font-size:.74rem!important}
+  .base-r5-more{width:29px!important;height:29px!important;min-width:29px!important}
+}
+
+@media(max-width:390px){
+  .dbd20-mode-actions{grid-template-columns:1fr}.dbd20-mode-actions .button{min-height:42px}
+  .lite-stat strong{font-size:1.3rem!important}.lite-stat span{font-size:.52rem!important}
+  .dbd20-question-nav{grid-template-columns:1fr 1fr}.dbd20-question-nav span{display:none}
+}
+
+@media print{
+  header,.hazard,.compact-actions,.result-actions,.report-tabs{display:none!important}
+  body,html{background:#fff!important;color:#111!important}
+  main{max-width:none!important;padding:0!important}.summary-shell{max-width:none!important}.summary-surface,.score-hero{border:0!important;background:#fff!important;color:#111!important}
+}
+
+/* ================= END DBD BASE 2.0 FINAL UI ================= */

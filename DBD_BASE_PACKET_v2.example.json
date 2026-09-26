@@ -1,48 +1,49 @@
 {
-  "packet_type": "flashcards",
-  "title": "OSN Geography — Climate Basics",
-  "subject": "Geography",
-  "topic": "Climate and Climate Change",
+  "dbd_version": "DBD Base 2.0",
+  "campaign": "Example",
+  "subject": "Chemistry",
+  "topic": "Thermochemistry",
   "source": "DBD Base 2.0 example",
-  "cards": [
+  "test_type": "focused",
+  "feedback": "immediate",
+  "timing": "record",
+  "show_timer": false,
+  "confidence": "on",
+  "questions": [
     {
-      "id": "geo-climate-001",
-      "topic": "Climate and Climate Change",
-      "subtopic": "Air masses",
-      "type": "TERM",
-      "front": "mT",
-      "back": "Maritime tropical: warm and moist",
-      "priority": "core",
-      "source": "Example",
-      "tags": [
-        "air masses"
-      ]
+      "id": "q1",
+      "type": "numeric",
+      "prompt": "The solution cools from 30°C to 25°C. What is ΔT in °C?",
+      "answer": "-5",
+      "accepted_answers": ["-5", "-5°C", "-5 °C"],
+      "tolerance": 0,
+      "explanation": "ΔT = Tfinal − Tinitial = 25 − 30 = −5°C.",
+      "tags": ["Kalorimetri", "Perubahan suhu"],
+      "context_label": "Thermochemistry",
+      "stimulus": {
+        "type": "table",
+        "title": "Data percobaan",
+        "columns": ["Parameter", "Nilai"],
+        "rows": [
+          ["Massa larutan", "100 g"],
+          ["Suhu awal", "30°C"],
+          ["Suhu akhir", "25°C"]
+        ]
+      }
     },
     {
-      "id": "geo-settlement-001",
-      "topic": "Settlement Geography",
-      "subtopic": "Central Place Theory",
-      "type": "REVERSE",
-      "front": "Minimum population needed to sustain a service",
-      "back": "Threshold",
-      "priority": "core",
-      "source": "Example",
-      "tags": [
-        "Christaller"
-      ]
-    },
-    {
-      "id": "geo-ocean-001",
-      "topic": "Oceanography",
-      "subtopic": "Upwelling",
-      "type": "MECHANISM",
-      "front": "How does upwelling work?",
-      "back": "Surface water is displaced, then colder nutrient-rich deep water rises to replace it.",
-      "priority": "core",
-      "source": "Example",
-      "tags": [
-        "upwelling"
-      ]
+      "id": "q2",
+      "type": "multi_select",
+      "prompt": "Select every statement that is true for an exothermic reaction.",
+      "choices": {
+        "A": "ΔH is negative",
+        "B": "The system releases heat to the surroundings",
+        "C": "ΔH must be positive",
+        "D": "The surroundings can gain heat"
+      },
+      "answer": ["A", "B", "D"],
+      "explanation": "Exothermic reactions release heat and have negative ΔH.",
+      "tags": ["Eksoterm", "Tanda ΔH"]
     }
   ]
 }
